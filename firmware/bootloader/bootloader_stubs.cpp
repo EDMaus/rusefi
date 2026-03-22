@@ -1,5 +1,4 @@
 #include "pch.h"
-
 #include "hardware.h"
 
 /*
@@ -13,7 +12,13 @@ void chDbgPanic3(const char* /*msg*/, const char* /*file*/, int /*line*/) {
 }
 
 extern "C" {
-void logHardFault(uint32_t type, uintptr_t faultAddress, void* sp, struct port_extctx* ctx, uint32_t csfr) { }
+void logHardFault(uint32_t type, uintptr_t faultAddress, void* sp, struct port_extctx* ctx, uint32_t csfr) {
+    (void)type;
+    (void)faultAddress;
+    (void)sp;
+    (void)ctx;
+    (void)csfr;
+}
 }
 
 void setPinConfigurationOverrides() { }
@@ -28,3 +33,15 @@ void threadInitHook(void*) {}
 void onLockHook() {}
 void onUnlockHook() {}
 //#endif /* ENABLE_PERF_TRACE */
+
+Gpio getWarningLedPin() {
+    return Gpio::Unassigned;
+}
+
+Gpio getCommsLedPin() {
+    return Gpio::Unassigned;
+}
+
+Gpio getRunningLedPin() {
+    return Gpio::Unassigned;
+}
