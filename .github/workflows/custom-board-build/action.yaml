@@ -337,6 +337,54 @@ runs:
         fi
         bash bin/compile.sh $BOARD_META_PATH --output-sync=recurse ${{inputs.artifacts}} ${{inputs.extra_makefile_targets}} ${TARGETS[@]}
 
+    - name: Generate real OpenBLT update SREC
+      working-directory: ${{inputs.rusefi_dir}}/firmware
+      shell: bash
+      run: |
+        python3 - << 'PY'
+        from pathlib import Path
+
+        src = Path("build/rusefi.srec")
+        dst = Path("build/rusefi_update.srec")
+        START_ADDR = 0x08008000
+
+        if not src.exists():
+            raise SystemExit(f"Source SREC not found: {src}")
+
+        def addr_len(rec_type: str) -> int:
+            return {"1": 2, "2": 3, "3": 4}[rec_type]
+
+        kept = 0
+        with src.open("r", encoding="ascii") as fin, dst.open("w", encoding="ascii", newline="\n") as fout:
+            for line in fin:
+                line = line.strip()
+                if not line:
+                    continue
+
+                if not line.startswith("S"):
+                    continue
+
+                rec_type = line[1]
+
+                # keep non-data records too
+                if rec_type not in {"1", "2", "3"}:
+                    fout.write(line + "\n")
+                    continue
+
+                addr_bytes = addr_len(rec_type)
+                addr_hex_len = addr_bytes * 2
+                addr = int(line[4:4 + addr_hex_len], 16)
+
+                if addr >= START_ADDR:
+                    fout.write(line + "\n")
+                    kept += 1
+
+        if kept == 0:
+            raise SystemExit("No SREC data kept for OpenBLT update image")
+
+        print(f"Generated {dst} from {src}")
+        PY
+
     - name: Ftp Upload Both Bundles
       if: ${{ contains(inputs.uploads, 'ftp_upload_bundles') }}
       working-directory: ${{inputs.rusefi_dir}}/artifacts
@@ -456,7 +504,7 @@ runs:
       uses: actions/upload-artifact@v4
       with:
         name: rusefi_update_${{env.SHORT_BOARD_NAME}}.srec
-        path: ${{inputs.rusefi_dir}}/firmware/build/rusefi.srec
+        path: ${{inputs.rusefi_dir}}/firmware/build/rusefi_update.srec
 
     - name: Upload github action hex artifact
       if: ${{ contains(inputs.artifacts, 'hex') }}
