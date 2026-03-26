@@ -34,14 +34,14 @@ void onLockHook() {}
 void onUnlockHook() {}
 //#endif /* ENABLE_PERF_TRACE */
 
-Gpio getWarningLedPin() {
-    return Gpio::Unassigned;
+__attribute__((weak)) Gpio getWarningLedPin() {
+	return Gpio::Unassigned;
 }
 
-Gpio getCommsLedPin() {
-    return Gpio::Unassigned;
+__attribute__((weak)) Gpio getCommsLedPin() {
+	return Gpio::Unassigned;
 }
 
-Gpio getRunningLedPin() {
-    return Gpio::Unassigned;
+__attribute__((weak)) Gpio getRunningLedPin() {
+	return Gpio::Unassigned;
 }

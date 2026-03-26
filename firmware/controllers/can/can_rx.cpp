@@ -23,6 +23,7 @@
 #include "can_vss.h"
 #include "rusefi_wideband.h"
 #include "board_overrides.h"
+#include "colt_can.h"
 /**
  * this build-in CAN sniffer is very basic but that's our CAN sniffer
  */
@@ -238,6 +239,10 @@ void processCanRxMessage(const size_t busIndex, const CANRxFrame &frame, efitick
 	// TODO use call_board_override
 	if (custom_board_can_rx.has_value()) {
 		custom_board_can_rx.value()(busIndex, frame, nowNt);
+	}
+
+	if (busIndex == 0) {
+		processColtCanRx(CAN_ID(frame), frame.data8, frame.DLC);
 	}
 
     // see AemXSeriesWideband as an example of CanSensorBase/CanListener

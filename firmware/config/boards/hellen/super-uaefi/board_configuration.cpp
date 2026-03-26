@@ -10,6 +10,7 @@
 #include "board_overrides.h"
 //#include "connectors/generated_board_pin_names.h"
 
+#ifndef EFI_BOOTLOADER
 Gpio getCommsLedPin() {
 	return Gpio::MM100_LED3_BLUE;
 }
@@ -22,6 +23,7 @@ Gpio getRunningLedPin() {
 Gpio getWarningLedPin() {
 	return Gpio::MM100_LED4_YELLOW;
 }
+#endif
 
 static void setInjectorPins() {
 	engineConfiguration->injectionPins[0] = Gpio::MM100_INJ1;
