@@ -252,30 +252,44 @@ public:
 			motor->enable();
 			return ACPhase::Open;
 		case ACPhase::Open:
-			if (m_autocalTimer.hasElapsedMs(1000)) {
-				// Capture open position
-				m_primaryMax = Sensor::getRaw(functionToTpsSensorPrimary(myFunction));
-				m_secondaryMax = Sensor::getRaw(functionToTpsSensorSecondary(myFunction));
+	if (m_autocalTimer.hasElapsedMs(1000)) {
+		// Capture open position
+		m_primaryMax = Sensor::getRaw(functionToTpsSensorPrimary(myFunction));
+		m_secondaryMax = Sensor::getRaw(functionToTpsSensorSecondary(myFunction));
 
-				// Next: close the throttle
-				motor->set(-0.5f);
-				return ACPhase::Close;
-			}
-			break;
+		efiPrintf("ETB AUTOCAL OPEN  func=%d primEnum=%d secEnum=%d prim=%.3f sec=%.3f",
+			(int)myFunction,
+			(int)functionToTpsSensorPrimary(myFunction),
+			(int)functionToTpsSensorSecondary(myFunction),
+			m_primaryMax,
+			m_secondaryMax);
+
+		// Next: close the throttle
+		motor->set(-0.5f);
+		return ACPhase::Close;
+	}
+	break;
 		case ACPhase::Close:
-			if (m_autocalTimer.hasElapsedMs(1000)) {
-				// Capture closed position
-				m_primaryMin = Sensor::getRaw(functionToTpsSensorPrimary(myFunction));
-				m_secondaryMin = Sensor::getRaw(functionToTpsSensorSecondary(myFunction));
+	if (m_autocalTimer.hasElapsedMs(1000)) {
+		// Capture closed position
+		m_primaryMin = Sensor::getRaw(functionToTpsSensorPrimary(myFunction));
+		m_secondaryMin = Sensor::getRaw(functionToTpsSensorSecondary(myFunction));
 
-				// Disable the motor, we're done
-				motor->disable("autotune");
+		efiPrintf("ETB AUTOCAL CLOSE func=%d primEnum=%d secEnum=%d prim=%.3f sec=%.3f",
+			(int)myFunction,
+			(int)functionToTpsSensorPrimary(myFunction),
+			(int)functionToTpsSensorSecondary(myFunction),
+			m_primaryMin,
+			m_secondaryMin);
 
-				// Check that the calibrate actually moved the throttle
-				if (std::abs(m_primaryMax - m_primaryMin) < 0.5f) {
-					firmwareError(ObdCode::OBD_TPS_Configuration, "Auto calibrate failed, check your wiring!\r\nClosed voltage: %.1fv Open voltage: %.1fv", m_primaryMin, m_primaryMax);
-					return ACPhase::Stopped;
-				}
+		// Disable the motor, we're done
+		motor->disable("autotune");
+
+		// Check that the calibrate actually moved the throttle
+		if (std::abs(m_primaryMax - m_primaryMin) < 0.5f) {
+			firmwareError(ObdCode::OBD_TPS_Configuration, "Auto calibrate failed, check your wiring!\r\nClosed voltage: %.1fv Open voltage: %.1fv", m_primaryMin, m_primaryMax);
+			return ACPhase::Stopped;
+		}
 
 				if (!m_isAutocalTs) {
 					// configuration on ECU side is in ADC, TS sees Volts, see "tps_limit_t"
