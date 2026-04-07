@@ -221,12 +221,13 @@ public:
 	}
 
 	void autoCalibrateTps(bool reportToTs) override {
-		// Only auto calibrate throttles
-		if (TBase::getFunction() == DC_Throttle1 || TBase::getFunction() == DC_Throttle2 || TBase::getFunction() == DC_Wastegate) {
-			m_isAutocalTs = reportToTs;
-			m_autocalPhase = ACPhase::Start;
-		}
+	// Only auto calibrate throttles
+	if (TBase::getFunction() == DC_Throttle1 || TBase::getFunction() == DC_Throttle2 || TBase::getFunction() == DC_Wastegate) {
+		efiPrintf("### PATCH ACTIVE ETB AUTOCAL V2 ###");
+		m_isAutocalTs = reportToTs;
+		m_autocalPhase = ACPhase::Start;
 	}
+}
 
 	ACPhase doAutocal(ACPhase phase) {
 		// Don't allow if engine is running!
