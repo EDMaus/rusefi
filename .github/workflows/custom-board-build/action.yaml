@@ -337,6 +337,62 @@ runs:
         fi
         bash bin/compile.sh $BOARD_META_PATH --output-sync=recurse ${{inputs.artifacts}} ${{inputs.extra_makefile_targets}} ${TARGETS[@]}
 
+    - name: Dump bundle and artifact update files
+      working-directory: ${{inputs.rusefi_dir}}
+      shell: bash
+      run: |
+        python3 - << 'PY'
+        from pathlib import Path
+        import zipfile
+
+        def inspect_srec(path):
+            lines = [line.strip() for line in path.read_text(encoding="ascii").splitlines() if line.strip()]
+            first_addr = None
+            last_addr = None
+            total_records = 0
+            total_data_bytes = 0
+
+            for line in lines:
+                if line.startswith(("S1", "S2", "S3")):
+                    t = line[1]
+                    addr_hex_len = {"1": 4, "2": 6, "3": 8}[t]
+                    addr = int(line[4:4 + addr_hex_len], 16)
+                    data_hex = line[4 + addr_hex_len:-2]
+                    data_len = len(data_hex) // 2
+                    rec_last = addr + data_len - 1
+
+                    if first_addr is None:
+                        first_addr = addr
+                    if last_addr is None or rec_last > last_addr:
+                        last_addr = rec_last
+
+                    total_records += 1
+                    total_data_bytes += data_len
+
+            print(f"\nSREC FILE: {path}")
+            print(f"  size            = {path.stat().st_size}")
+            print(f"  first_addr      = 0x{first_addr:08X}" if first_addr is not None else "  first_addr      = none")
+            print(f"  last_addr       = 0x{last_addr:08X}" if last_addr is not None else "  last_addr       = none")
+            print(f"  total_records   = {total_records}")
+            print(f"  total_data_bytes= {total_data_bytes}")
+            print(f"  last_line       = {lines[-1] if lines else 'EMPTY'}")
+
+        print("=== Standalone *_update.srec files under repo ===")
+        for p in sorted(Path(".").rglob("*_update.srec")):
+            inspect_srec(p)
+
+        print("\n=== ZIP files under artifacts ===")
+        for z in sorted(Path("artifacts").rglob("*.zip")):
+            print(f"\nZIP: {z} ({z.stat().st_size} bytes)")
+            try:
+                with zipfile.ZipFile(z, "r") as zipf:
+                    for name in zipf.namelist():
+                        if name.endswith(".srec"):
+                            print(f"  contains SREC: {name}")
+            except Exception as e:
+                print(f"  failed to inspect zip: {e}")
+        PY
+
     - name: Generate real OpenBLT update SREC
       working-directory: ${{inputs.rusefi_dir}}/firmware
       shell: bash
@@ -379,16 +435,13 @@ runs:
 
                 rec_type = line[1]
 
-                # Keep only harmless header/count records
                 if rec_type in {"0", "5", "6"}:
                     fout.write(line + "\n")
                     continue
 
-                # Drop old termination/start records entirely
                 if rec_type in {"7", "8", "9"}:
                     continue
 
-                # Keep only data records
                 if rec_type not in {"1", "2", "3"}:
                     continue
 
@@ -402,7 +455,6 @@ runs:
                     fout.write(line + "\n")
                     kept += 1
 
-            # Write corrected app start record
             fout.write(make_s7_record(START_ADDR) + "\n")
 
         if total_data_records == 0:
@@ -423,44 +475,44 @@ runs:
       working-directory: ${{inputs.rusefi_dir}}/firmware
       shell: bash
       run: |
-        python3 - << 'PY'
-        from pathlib import Path
+        python3 <<'PY'
+from pathlib import Path
 
-        def inspect(path):
-            lines = [line.strip() for line in path.read_text(encoding="ascii").splitlines() if line.strip()]
-            first_addr = None
-            last_addr = None
-            total_records = 0
-            total_data_bytes = 0
+def inspect(path):
+    lines = [line.strip() for line in path.read_text(encoding="ascii").splitlines() if line.strip()]
+    first_addr = None
+    last_addr = None
+    total_records = 0
+    total_data_bytes = 0
 
-            for line in lines:
-                if line.startswith(("S1", "S2", "S3")):
-                    t = line[1]
-                    addr_hex_len = {"1": 4, "2": 6, "3": 8}[t]
-                    addr = int(line[4:4 + addr_hex_len], 16)
-                    data_hex = line[4 + addr_hex_len:-2]
-                    data_len = len(data_hex) // 2
-                    rec_last = addr + data_len - 1
+    for line in lines:
+        if line.startswith(("S1", "S2", "S3")):
+            t = line[1]
+            addr_hex_len = {"1": 4, "2": 6, "3": 8}[t]
+            addr = int(line[4:4 + addr_hex_len], 16)
+            data_hex = line[4 + addr_hex_len:-2]
+            data_len = len(data_hex) // 2
+            rec_last = addr + data_len - 1
 
-                    if first_addr is None:
-                        first_addr = addr
-                    if last_addr is None or rec_last > last_addr:
-                        last_addr = rec_last
+            if first_addr is None:
+                first_addr = addr
+            if last_addr is None or rec_last > last_addr:
+                last_addr = rec_last
 
-                    total_records += 1
-                    total_data_bytes += data_len
+            total_records += 1
+            total_data_bytes += data_len
 
-            print(f"\nFILE: {path}")
-            print(f"  size            = {path.stat().st_size}")
-            print(f"  first_addr      = 0x{first_addr:08X}" if first_addr is not None else "  first_addr      = none")
-            print(f"  last_addr       = 0x{last_addr:08X}" if last_addr is not None else "  last_addr       = none")
-            print(f"  total_records   = {total_records}")
-            print(f"  total_data_bytes= {total_data_bytes}")
-            print(f"  last_line       = {lines[-1] if lines else 'EMPTY'}")
+    print(f"\nFILE: {path}")
+    print(f"  size            = {path.stat().st_size}")
+    print(f"  first_addr      = 0x{first_addr:08X}" if first_addr is not None else "  first_addr      = none")
+    print(f"  last_addr       = 0x{last_addr:08X}" if last_addr is not None else "  last_addr       = none")
+    print(f"  total_records   = {total_records}")
+    print(f"  total_data_bytes= {total_data_bytes}")
+    print(f"  last_line       = {lines[-1] if lines else 'EMPTY'}")
 
-        for p in sorted(Path(".").rglob("*.srec")):
-            inspect(p)
-        PY    
+for p in sorted(Path(".").rglob("*.srec")):
+    inspect(p)
+PY
 
     - name: Ftp Upload Both Bundles
       if: ${{ contains(inputs.uploads, 'ftp_upload_bundles') }}
