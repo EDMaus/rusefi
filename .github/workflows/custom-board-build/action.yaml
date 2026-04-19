@@ -337,139 +337,6 @@ runs:
         fi
         bash bin/compile.sh $BOARD_META_PATH --output-sync=recurse ${{inputs.artifacts}} ${{inputs.extra_makefile_targets}} ${TARGETS[@]}
 
-    - name: Dump bundle and artifact update files
-      working-directory: ${{inputs.rusefi_dir}}
-      shell: bash
-      run: |
-        python3 - << 'PY'
-        from pathlib import Path
-        import zipfile
-
-        def inspect_srec(path):
-            lines = [line.strip() for line in path.read_text(encoding="ascii").splitlines() if line.strip()]
-            first_addr = None
-            last_addr = None
-            total_records = 0
-            total_data_bytes = 0
-
-            for line in lines:
-                if line.startswith(("S1", "S2", "S3")):
-                    t = line[1]
-                    addr_hex_len = {"1": 4, "2": 6, "3": 8}[t]
-                    addr = int(line[4:4 + addr_hex_len], 16)
-                    data_hex = line[4 + addr_hex_len:-2]
-                    data_len = len(data_hex) // 2
-                    rec_last = addr + data_len - 1
-
-                    if first_addr is None:
-                        first_addr = addr
-                    if last_addr is None or rec_last > last_addr:
-                        last_addr = rec_last
-
-                    total_records += 1
-                    total_data_bytes += data_len
-
-            print(f"\nSREC FILE: {path}")
-            print(f"  size            = {path.stat().st_size}")
-            print(f"  first_addr      = 0x{first_addr:08X}" if first_addr is not None else "  first_addr      = none")
-            print(f"  last_addr       = 0x{last_addr:08X}" if last_addr is not None else "  last_addr       = none")
-            print(f"  total_records   = {total_records}")
-            print(f"  total_data_bytes= {total_data_bytes}")
-            print(f"  last_line       = {lines[-1] if lines else 'EMPTY'}")
-
-        print("=== Standalone *_update.srec files under repo ===")
-        for p in sorted(Path(".").rglob("*_update.srec")):
-            inspect_srec(p)
-
-        print("\n=== ZIP files under artifacts ===")
-        for z in sorted(Path("artifacts").rglob("*.zip")):
-            print(f"\nZIP: {z} ({z.stat().st_size} bytes)")
-            try:
-                with zipfile.ZipFile(z, "r") as zipf:
-                    for name in zipf.namelist():
-                        if name.endswith(".srec"):
-                            print(f"  contains SREC: {name}")
-            except Exception as e:
-                print(f"  failed to inspect zip: {e}")
-        PY
-
-    - name: Generate real OpenBLT update SREC
-      working-directory: ${{inputs.rusefi_dir}}/firmware
-      shell: bash
-      run: |
-        python3 - << 'PY'
-        from pathlib import Path
-
-        src = Path("build/rusefi.srec")
-        dst = Path("build/rusefi_update.srec")
-        START_ADDR = 0x08008000
-
-        if not src.exists():
-            raise SystemExit(f"Source SREC not found: {src}")
-
-        def addr_len(rec_type: str) -> int:
-            return {"1": 2, "2": 3, "3": 4}[rec_type]
-
-        def make_s7_record(start_addr: int) -> str:
-            count = 0x05
-            addr_bytes = [
-                (start_addr >> 24) & 0xFF,
-                (start_addr >> 16) & 0xFF,
-                (start_addr >> 8) & 0xFF,
-                start_addr & 0xFF,
-            ]
-            checksum = (~(count + sum(addr_bytes))) & 0xFF
-            return f"S705{start_addr:08X}{checksum:02X}"
-
-        kept = 0
-        total_data_records = 0
-
-        with src.open("r", encoding="ascii") as fin, dst.open("w", encoding="ascii", newline="\n") as fout:
-            for line in fin:
-                line = line.strip()
-                if not line:
-                    continue
-
-                if not line.startswith("S"):
-                    continue
-
-                rec_type = line[1]
-
-                if rec_type in {"0", "5", "6"}:
-                    fout.write(line + "\n")
-                    continue
-
-                if rec_type in {"7", "8", "9"}:
-                    continue
-
-                if rec_type not in {"1", "2", "3"}:
-                    continue
-
-                total_data_records += 1
-
-                addr_bytes = addr_len(rec_type)
-                addr_hex_len = addr_bytes * 2
-                addr = int(line[4:4 + addr_hex_len], 16)
-
-                if addr >= START_ADDR:
-                    fout.write(line + "\n")
-                    kept += 1
-
-            fout.write(make_s7_record(START_ADDR) + "\n")
-
-        if total_data_records == 0:
-            raise SystemExit("No SREC data records found in source SREC")
-
-        if kept == 0:
-            raise SystemExit("No SREC data kept for OpenBLT update image")
-
-        print(f"Generated {dst} from {src}")
-        print(f"Total data records: {total_data_records}")
-        print(f"Kept data records:  {kept}")
-
-        lines = dst.read_text(encoding="ascii").splitlines()
-        print(f"Last SREC line: {lines[-1]}")
-        PY
 
     - name: Ftp Upload Both Bundles
       if: ${{ contains(inputs.uploads, 'ftp_upload_bundles') }}
@@ -585,12 +452,12 @@ runs:
         name: rusefi_${{env.SHORT_BOARD_NAME}}.bin
         path: ${{inputs.rusefi_dir}}/firmware/deliver/rusefi*.bin
 
-    - name: Upload github action srec artifact
-      if: ${{ contains(inputs.artifacts, 'srec') }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: rusefi_update_${{env.SHORT_BOARD_NAME}}.srec
-        path: ${{inputs.rusefi_dir}}/firmware/build/rusefi_update.srec
+         // - name: Upload github action srec artifact
+         //if: ${{ contains(inputs.artifacts, 'srec') }}
+         //uses: actions/upload-artifact@v4
+         //with:
+         // name: rusefi_update_${{env.SHORT_BOARD_NAME}}.srec
+          //path: ${{inputs.rusefi_dir}}/firmware/build/rusefi_update.srec
 
     - name: Upload github action hex artifact
       if: ${{ contains(inputs.artifacts, 'hex') }}
