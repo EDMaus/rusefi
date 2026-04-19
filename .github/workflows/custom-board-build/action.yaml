@@ -452,13 +452,6 @@ runs:
         name: rusefi_${{env.SHORT_BOARD_NAME}}.bin
         path: ${{inputs.rusefi_dir}}/firmware/deliver/rusefi*.bin
 
-         // - name: Upload github action srec artifact
-         //if: ${{ contains(inputs.artifacts, 'srec') }}
-         //uses: actions/upload-artifact@v4
-         //with:
-         // name: rusefi_update_${{env.SHORT_BOARD_NAME}}.srec
-          //path: ${{inputs.rusefi_dir}}/firmware/build/rusefi_update.srec
-
     - name: Upload github action hex artifact
       if: ${{ contains(inputs.artifacts, 'hex') }}
       uses: actions/upload-artifact@v4
