@@ -19,7 +19,7 @@ endif
 
 # *** KLUDGE ***: we do not include DFU files into bundle but we require DFU for checksum manipulations
 ifneq (,$(findstring NT,$(UNAME_S)))
-	H2D = ../misc/encedo_hex2dfu/hex2dfu.exe
+	H2D = py -3 ../misc/encedo_hex2dfu/hex2dfu.py
 else
 	H2D = ../misc/encedo_hex2dfu/hex2dfu.bin
 endif
@@ -178,7 +178,7 @@ $(BOOTLOADER_HEX) $(BOOTLOADER_BIN): .bootloader-sentinel ;
 # We pass SUBMAKE=yes to the bootloader Make instance so it knows not to try to build configs,
 #  as that would result in two simultaneous config generations, which causes issues.
 .bootloader-sentinel: $(CONFIG_FILES) .FORCE
-	BOARD_DIR=../$(BOARD_DIR) BOARD_META_PATH=../$(BOARD_META_PATH) TGT_SENTINEL=../$(TGT_SENTINEL) $(MAKE) -C bootloader -r SUBMAKE=yes
+	$(MAKE) -C bootloader -r SUBMAKE=yes BOARD_DIR=$(abspath $(BOARD_DIR)) BOARD_META_PATH=$(abspath $(BOARD_META_PATH)) TGT_SENTINEL=$(abspath $(TGT_SENTINEL))
 	@touch $@
 
 $(BUILDDIR)/$(PROJECT).map: $(BUILDDIR)/$(PROJECT).elf

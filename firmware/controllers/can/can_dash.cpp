@@ -18,7 +18,6 @@
 #include "can_bmw.h"
 #include "can_vag.h"
 #include "can_dash_honda.h"
-
 #include "rusefi_types.h"
 #include "rtc_helper.h"
 #include "fuel_math.h"
