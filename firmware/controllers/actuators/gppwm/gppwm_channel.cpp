@@ -46,7 +46,7 @@ void GppwmChannel::init(bool usePwm, IPwm* pwm, OutputPin* outputPin, const Valu
 	m_config = p_config;
 }
 
-/*PUBLIC_API_WEAK*/ expected<float> boardOverrideGppwm(size_t index) {
+PUBLIC_API_WEAK expected<float> boardOverrideGppwm(size_t index) {
 	UNUSED(index);
 	return unexpected;
 }
