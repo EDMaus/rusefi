@@ -67,4 +67,21 @@ cd "$FDIR"
 MI=$(realpath --relative-to="$FDIR" "$MI")
 
 source config/boards/common_script_read_meta_env.inc "$MI"
-make $B -j$(nproc) -r $MAKE_ARGS
+
+# GNU Make does not let environment variables reliably override values assigned
+# by the firmware makefiles. Pass the selected board metadata explicitly so
+# custom-board builds cannot silently fall back to f407-discovery.
+MAKE_METADATA_ARGS=(
+	"BOARD_META_PATH=$MI"
+	"BOARD_DIR=$BOARD_DIR"
+	"SHORT_BOARD_NAME=$SHORT_BOARD_NAME"
+	"PROJECT_BOARD=$PROJECT_BOARD"
+	"PROJECT_CPU=$PROJECT_CPU"
+	"USE_OPENBLT=$USE_OPENBLT"
+)
+
+[ -z "$BUNDLE_NAME" ] || MAKE_METADATA_ARGS+=("BUNDLE_NAME=$BUNDLE_NAME")
+[ -z "$META_OUTPUT_ROOT_FOLDER" ] || MAKE_METADATA_ARGS+=("META_OUTPUT_ROOT_FOLDER=$META_OUTPUT_ROOT_FOLDER")
+[ -z "$DEFAULT_TUNE_OUTPUT_FOLDER" ] || MAKE_METADATA_ARGS+=("DEFAULT_TUNE_OUTPUT_FOLDER=$DEFAULT_TUNE_OUTPUT_FOLDER")
+
+make $B -j$(nproc) -r "${MAKE_METADATA_ARGS[@]}" $MAKE_ARGS
