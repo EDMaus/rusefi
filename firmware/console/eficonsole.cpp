@@ -115,9 +115,9 @@ static void sayHello() {
 	efiPrintf("MCU F_SIZE %d KB", flashSize);
 	efiPrintf("MCU RAM %d KB", at32GetRamSizeKb());
 #else
-#define MCU_REVISION_MASK  0xfff
-	int mcuRevision = DBGMCU->IDCODE & MCU_REVISION_MASK;
-	efiPrintf("MCU rev=%x flashSize=%d", mcuRevision, flashSize);
+	int mcuRevision = GET_MCU_REVISION();
+	const char *mcuHumanName = getStm32McuName(mcuRevision);
+	efiPrintf("MCU rev=%x %s flashSize=%d", mcuRevision, mcuHumanName, flashSize);
 #endif
 #endif
 
@@ -250,6 +250,12 @@ void initializeConsole() {
 
 #if defined(STM32F4) || defined(STM32F7) || defined(STM32H7)
 	addConsoleAction("uid", printUid);
+#endif
+
+#if defined(STM32F4) || defined(STM32F7) || defined(STM32H7)
+	addConsoleAction("print_wrp", [](){ printWRPBits();});
+	addConsoleAction("print_opt", [](){ printOptBytes();});
+	addConsoleAction("remove_wrp", [](){ removeWRP();});
 #endif
 
 	sayHello();

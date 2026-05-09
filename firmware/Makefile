@@ -117,7 +117,7 @@ endif
 
 # Linker extra options here.
 ifeq ($(USE_LDOPT),)
-  USE_LDOPT =
+  USE_LDOPT = --print-memory-usage
 endif
 
 # Enable this if you want link time optimizations (LTO)
@@ -306,7 +306,6 @@ CSRC =  gcc_version_check.c \
 # C++ sources that can be compiled in ARM or THUMB mode depending on the global
 # setting.
 CPPSRC = \
-  configuration_check.cpp \
   $(ALLCPPSRC) \
   $(BOARDCPPSRC) \
   $(DEV_SRC_CPP) \

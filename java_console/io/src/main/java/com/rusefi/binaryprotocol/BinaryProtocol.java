@@ -17,6 +17,7 @@ import com.rusefi.core.Pair;
 import com.rusefi.core.RusEfiSignature;
 import com.rusefi.core.SensorCentral;
 import com.rusefi.core.SignatureHelper;
+import com.rusefi.core.io.BundleInfo;
 import com.rusefi.core.io.BundleUtil;
 import com.rusefi.core.net.ConnectionAndMeta;
 import com.rusefi.io.*;
@@ -36,6 +37,7 @@ import java.util.concurrent.*;
 import static com.devexperts.logging.Logging.getLogging;
 import static com.rusefi.binaryprotocol.IoHelper.*;
 import static com.rusefi.config.generated.VariableRegistryValues.*;
+import static com.rusefi.core.net.ConnectionAndMeta.RUSEFI_WIKI_DOWNLOAD_PAGE;
 import static com.rusefi.util.TuneBackupUtil.saveConfigurationImageToFiles;
 
 /**
@@ -166,8 +168,13 @@ public class BinaryProtocol {
 
     @Nullable
     public static String getSignature(IoStream stream) throws IOException {
+        // Drop bytes that arrived between port open and now
+        IncomingDataBuffer buffer = stream.getDataBuffer();
+        if (buffer.getPendingCount() > 0) {
+            buffer.dropPending();
+        }
         HelloCommand.send(stream);
-        return HelloCommand.getHelloResponse(stream.getDataBuffer());
+        return HelloCommand.getHelloResponse(buffer);
     }
 
     /**
@@ -200,7 +207,7 @@ public class BinaryProtocol {
                     "Connected ECU: %s\n" +
                     "Bundle target: %s\n\n" +
                     "Please download the correct bundle for your ECU from:\n" +
-                    "https://wiki.rusefi.com/Download/\n\n" +
+                    RUSEFI_WIKI_DOWNLOAD_PAGE + "\n\n" +
                     "The .ini file in this bundle is not compatible with your ECU's memory layout.",
                     ecuSignature.getBundleTarget(), bundleTarget
                 );
@@ -226,7 +233,12 @@ public class BinaryProtocol {
 
         int pageSize = iniFile.getMetaInfo().getPageSize(0);
         log.info("pageSize=" + pageSize);
-        readImage(arguments, new ConfigurationImageMetaVersion0_0(pageSize, signature));
+        try {
+            readImage(arguments, new ConfigurationImageMetaVersion0_0(pageSize, signature));
+        } catch (IllegalStateException e) {
+            close();
+            return e.getMessage();
+        }
         if (stream.isClosed())
             return "Failed to read calibration";
 
@@ -374,6 +386,7 @@ public class BinaryProtocol {
     @NotNull
     public ConfigurationImageWithMeta readFullImageFromController(final ConfigurationImageMeta meta) {
         log.info("Reading from controller " + meta.getEcuSignature());
+
         final ConfigurationImageWithMeta imageWithMeta = new ConfigurationImageWithMeta(meta);
         final ConfigurationImage image = imageWithMeta.getConfigurationImage();
 
@@ -395,16 +408,23 @@ public class BinaryProtocol {
             if (!checkResponseCode(response) || response.length != requestSize + 1) {
                 if (extractCode(response) == TS_RESPONSE_OUT_OF_RANGE) {
                     RusEfiSignature ecuSig = SignatureHelper.parse(signature);
-                    String bundleTgt = BundleUtil.getBundleTarget();
-                    String mismatchInfo = "";
-                    if (ecuSig != null && bundleTgt != null && !"unknown".equalsIgnoreCase(bundleTgt)
-                        && !bundleTgt.equalsIgnoreCase(ecuSig.getBundleTarget())) {
-                        mismatchInfo = String.format(" Bundle/ECU mismatch: bundle=%s, ECU=%s.", bundleTgt, ecuSig.getBundleTarget());
-                    }
+                    BundleInfo bundleInfo = BundleUtil.readBundleFullNameNotNull();
+
+                    String ecuDesc = (ecuSig != null)
+                        ? String.format("%s (branch=%s, %s-%s-%s, hash=%s)",
+                            ecuSig.getBundleTarget(), ecuSig.getBranch(),
+                            ecuSig.getYear(), ecuSig.getMonth(), ecuSig.getDay(), ecuSig.getHash())
+                        : signature;
+                    String bundleDesc = BundleInfo.isUndefined(bundleInfo)
+                        ? "unknown"
+                        : bundleInfo.getTarget() + " (release=" + bundleInfo.getBranchName() + ")";
+
                     throw new IllegalStateException(
-                        "TS_RESPONSE_OUT_OF_RANGE: ECU rejected memory read at offset=" + offset + " size=" + requestSize + "." +
-                        mismatchInfo +
-                        " This usually means the .ini file doesn't match your ECU. Download the correct bundle from https://rusefi.com/online/"
+                        "ECU rejected memory read at offset=" + offset + " size=" + requestSize + ".\n\n" +
+                        "Bundle: " + bundleDesc + "\n" +
+                        "Connected ECU: " + ecuDesc + "\n\n" +
+                        "This usually means the .ini file doesn't match your ECU.\n" +
+                        "Download the correct bundle from" + RUSEFI_WIKI_DOWNLOAD_PAGE
                     );
                 }
                 String code = (response == null || response.length == 0) ? "empty" : "ERROR_CODE=" + getCode(response);
@@ -424,8 +444,12 @@ public class BinaryProtocol {
     }
 
     public byte @NotNull [] smartPacketPrefix(int offset, int requestSize) {
+        return smartPacketPrefix2(offset, requestSize, isSinglePageController());
+    }
+
+    static byte @NotNull [] smartPacketPrefix2(int offset, int requestSize, boolean isSinglePageController) {
         byte[] packet;
-        if (isSinglePageController()) {
+        if (isSinglePageController) {
             // older controller, no page index in read command
             // PS: technically we can/shall actually use command syntax as specified by the .ini
             packet = new byte[4];
@@ -717,6 +741,11 @@ public class BinaryProtocol {
         }
     }
 
+    /**
+     * This is a blocking method which would fetch all output channels from the controller.
+     *
+     * @return true if successful
+     */
     public boolean requestOutputChannels() {
         if (stream.isClosed())
             return false;

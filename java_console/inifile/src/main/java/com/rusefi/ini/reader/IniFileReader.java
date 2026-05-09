@@ -38,9 +38,12 @@ public class IniFileReader {
                 contextHelp,
                 allTables,
                 allCurves,
-                menuDialogString,
                 menus,
-                frontPage);
+                frontPage,
+                controllerCommands,
+                veAnalyzeMaps,
+                lambdaTargetTables,
+                veAnalyzeFilters);
     }
     private static final Logging log = Logging.getLogging(IniFileReader.class);
     public static final String RUSEFI_INI_PREFIX = "rusefi";
@@ -91,7 +94,6 @@ public class IniFileReader {
     private final Map<String, String> topicHelpMap = new TreeMap<>();
 
     private final Map<String, ContextHelpModel> contextHelp = new LinkedHashMap<>();
-    private String menuDialog;
     private String currentHelpReferenceName;
     private String currentHelpTitle;
     private final List<String> currentHelpTextLines = new ArrayList<>();
@@ -99,10 +101,10 @@ public class IniFileReader {
 
     private boolean isTableEditorSection = false;
     private boolean isMenuSection = false;
+    private boolean isControllerCommandsSection = false;
     private final List<MenuModel> menus = new ArrayList<>();
     private MenuModel currentMenu;
     private GroupMenuModel currentGroup;
-    private String menuDialogString;
     private final Map<String, TableModel> allTables = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     private final TableBuilder tableBuilder = new TableBuilder();
 
@@ -111,6 +113,13 @@ public class IniFileReader {
     private final FrontPageModel frontPage = new FrontPageModel();
     private final Map<String, CurveModel> allCurves = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     private final CurveBuilder curveBuilder = new CurveBuilder();
+
+    private final Map<String, String> controllerCommands = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+
+    private boolean isVeAnalyzeSection = false;
+    private final List<VeAnalyzeMap> veAnalyzeMaps = new ArrayList<>();
+    private final List<String> lambdaTargetTables = new ArrayList<>();
+    private final List<VeAnalyzeFilter> veAnalyzeFilters = new ArrayList<>();
 
     private boolean isInSettingContextHelp = false;
     private boolean isInsidePageDefinition;
@@ -234,7 +243,9 @@ public class IniFileReader {
                 isTableEditorSection = first.equalsIgnoreCase("[TableEditor]");
                 isCurveEditorSection = first.equalsIgnoreCase("[CurveEditor]");
                 isMenuSection = first.equalsIgnoreCase("[Menu]");
+                isControllerCommandsSection = first.equalsIgnoreCase("[ControllerCommands]");
                 isFrontPageSection = first.equalsIgnoreCase("[FrontPage]");
+                isVeAnalyzeSection = first.equalsIgnoreCase("[VeAnalyze]");
 
                 if (wasGaugeSection && !isGaugeConfigurationsSection) {
                     finishGaugeCategory();
@@ -277,6 +288,14 @@ public class IniFileReader {
                 return;
             } else if (isFrontPageSection) {
                 handleFrontPage(list);
+                return;
+            } else if (isVeAnalyzeSection) {
+                handleVeAnalyze(list);
+                return;
+            } else if (isControllerCommandsSection) {
+                if (list.size() >= 2) {
+                    controllerCommands.put(list.get(0), list.get(1));
+                }
                 return;
             }
 
@@ -560,14 +579,19 @@ public class IniFileReader {
         // format: indicator, expression, offLabel, onLabel[, offBg, offFg, onBg, onFg]
         // Colors are optional
         if (list.size() < 4) return;
-        IndicatorModel indicator = new IndicatorModel(
+
+        IndicatorModel indicator = makeIndicatorFromIniField(list);
+        indicatorsOfCurrentDialog.add(indicator);
+        orderedEntriesOfCurrentDialog.add(new DialogModel.DialogEntry(DialogModel.DialogEntry.Kind.INDICATOR, indicator));
+    }
+
+    private IndicatorModel makeIndicatorFromIniField(LinkedList<String> list) {
+        return new IndicatorModel(
                 list.get(1), list.get(2), list.get(3),
                 list.size() > 4 ? list.get(4) : null,
                 list.size() > 5 ? list.get(5) : "black",
                 list.size() > 6 ? list.get(6) : "green",
                 list.size() > 7 ? list.get(7) : "black");
-        indicatorsOfCurrentDialog.add(indicator);
-        orderedEntriesOfCurrentDialog.add(new DialogModel.DialogEntry(DialogModel.DialogEntry.Kind.INDICATOR, indicator));
     }
 
     private void handleDialogGauge(LinkedList<String> list) {
@@ -653,9 +677,6 @@ public class IniFileReader {
     private void handleMenu(LinkedList<String> list) {
         String keyword = list.removeFirst();
         switch (keyword) {
-            case "menuDialog":
-                menuDialogString = list.get(0);
-                break;
             case "menu":
                 currentMenu = new MenuModel(IniFileReaderUtil.removeMenuAmpersand(list.get(0)));
                 menus.add(currentMenu);
@@ -719,7 +740,15 @@ public class IniFileReader {
 
         if (gaugeName.equalsIgnoreCase("gaugeCategory")) {
             finishGaugeCategory();
-            currentGaugeCategory = list.get(1);
+            // Unquoted multi-word category names (e.g. `gaugeCategory = Boost PID`) are
+            // tokenized into multiple list entries because space is a token separator;
+            // re-join them so the category key matches what the firmware emits.
+            // Quoted forms (e.g. `gaugeCategory = "ECU Status"`) yield a single token already.
+            StringBuilder name = new StringBuilder(list.get(1));
+            for (int i = 2; i < list.size(); i++) {
+                name.append(' ').append(list.get(i));
+            }
+            currentGaugeCategory = name.toString();
             return;
         }
 
@@ -852,6 +881,39 @@ public class IniFileReader {
         }
     }
 
+    private void handleVeAnalyze(LinkedList<String> list) {
+        if (list.size() < 2) {
+            return;
+        }
+        String key = list.get(0);
+        if (key.equalsIgnoreCase("veAnalyzeMap")) {
+            if (list.size() >= 6) {
+                veAnalyzeMaps.add(new VeAnalyzeMap(list.get(1), list.get(2), list.get(3), list.get(4), list.get(5)));
+            }
+        } else if (key.equalsIgnoreCase("lambdaTargetTables")) {
+            for (int i = 1; i < list.size(); i++) {
+                lambdaTargetTables.add(list.get(i));
+            }
+        } else if (key.equalsIgnoreCase("filter")) {
+            if (list.size() >= 6) {
+                String name = list.get(1);
+                String displayName = list.get(2);
+                String outputChannel = list.get(3);
+                String operator = list.get(4);
+                double defaultValue = Double.parseDouble(list.get(5));
+
+                boolean userAdjustable = false;
+                for (int i = 6; i < list.size(); i++) {
+                    if (list.get(i).equalsIgnoreCase("true")) {
+                        userAdjustable = true;
+                        break;
+                    }
+                }
+                veAnalyzeFilters.add(new VeAnalyzeFilter(name, displayName, outputChannel, operator, defaultValue, userAdjustable));
+            }
+        }
+    }
+
     private void handleFrontPage(LinkedList<String> list) {
         String first = list.getFirst();
         if (first.startsWith("gauge")) {
@@ -861,16 +923,7 @@ public class IniFileReader {
         } else if (first.equalsIgnoreCase("indicator")) {
             // format: indicator, expression, offLabel, onLabel[, offBg, offFg, onBg, onFg]
             if (list.size() >= 4) {
-                IndicatorModel indicator = new IndicatorModel(
-                        list.get(1),
-                        list.get(2),
-                        list.get(3),
-                        list.size() > 4 ? list.get(4) : null,
-                        list.size() > 5 ? list.get(5) : "black",
-                        list.size() > 6 ? list.get(6) : "green",
-                        list.size() > 7 ? list.get(7) : "black"
-                );
-                frontPage.getIndicators().add(indicator);
+                frontPage.getIndicators().add(makeIndicatorFromIniField(list));
             }
         }
     }

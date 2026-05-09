@@ -1,5 +1,7 @@
 .dep*
 build/
+triggers/*
+test_triggers
 build_kinetis/
 pinouts
 workarea
@@ -40,3 +42,16 @@ rusefi_simulator_log.mlg
 
 # bundle
 artifacts
+
+# clangd cache
+
+.cache/
+*.idx
+
+# unit tests
+bean_encoder_test.csv
+
+# gcov local
+venv/
+coverage_reports/
+

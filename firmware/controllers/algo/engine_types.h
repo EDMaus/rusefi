@@ -147,7 +147,7 @@ enum class trigger_type_e : uint32_t {
 	// this one is 6 cylinder, see TT_JEEP_4_cyl for 4 cylinders
 	TT_JEEP_18_2_2_2 = 37,
 	TT_12_TOOTH_CRANK = 38,
-	TT_UNUSED_39 = 39,
+	TT_FORD_TFI_PIP_6 = 39,
 	// Jeep XJ 2500cc 4 cylinder. See also TT_JEEP_18_2_2_2 for 6 cylinders
 	TT_JEEP_4_CYL = 40,
 	// magneti marelli Fiat/Lancia IAW P8 from the 90', 2.0 16 v turbo engine - Lancia Coupe
@@ -199,7 +199,7 @@ enum class trigger_type_e : uint32_t {
 	TT_VVT_MITSUBISHI_3A92 = 62,
 	TT_SUBARU_SVX_CRANK_1 = 63,
 	TT_SUBARU_SVX_CAM_VVT = 64,
-	TT_FORD_TFI_PIP = 65,
+	TT_FORD_TFI_PIP_8 = 65,
 	TT_SUZUKI_G13B = 66,
 	// * Honda K exhaust cam shaft
 	TT_HONDA_K_CAM_4_1 = 67,
@@ -259,8 +259,11 @@ enum class trigger_type_e : uint32_t {
 	// symmetrical crank
 	TT_SUBARU_7_6_CRANK = 94,
 
+	// we assume this is NOT ready/NOT working? https://github.com/rusefi/rusefi/pull/9262
 	TT_SUZUKI_G16B = 95,
-	TT_UNUSED_96 = 96,
+	TT_VIPER_V10_CRANK = 96,
+	TT_UNUSED_97 = 97,
+	TT_UNUSED_98 = 98,
 
 	// TL,DR https://github.com/rusefi/rusefi/commit/523805138589585cc8889d6afd9305d120180902 example of new trigger commit
 	//
@@ -273,7 +276,7 @@ enum class trigger_type_e : uint32_t {
 	//
 	// Another point: once you add a new trigger, run get_trigger_images.bat which would run rusefi_test.exe from unit_tests
 	//
-	TT_UNUSED = 97, // this is used if we want to iterate over all trigger types
+	TT_UNUSED = 99, // this is used if we want to iterate over all trigger types
 };
 
 typedef enum {

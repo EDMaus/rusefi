@@ -490,6 +490,12 @@ float getOutputValueByHash(const int hash) {
 // effectiveMap
 		case -1724101868:
 			return engine->outputChannels.effectiveMap;
+// predTimerResetCnt
+		case -1457567239:
+			return engine->outputChannels.predTimerResetCnt;
+// mapPredEventOver
+		case -1250788372:
+			return engine->outputChannels.mapPredEventOver;
 // instantMAPValue
 		case -1162308767:
 			return engine->outputChannels.instantMAPValue;
@@ -628,6 +634,18 @@ float getOutputValueByHash(const int hash) {
 // rawBattery
 		case 1520918538:
 			return engine->outputChannels.rawBattery;
+// secondVeBlendParameter
+		case 778639874:
+			return engine->outputChannels.secondVeBlendParameter;
+// secondVeBlendBias
+		case 173882720:
+			return engine->outputChannels.secondVeBlendBias;
+// secondIgnitionBlendParameter
+		case 1275938568:
+			return engine->outputChannels.secondIgnitionBlendParameter;
+// secondIgnitionBlendBias
+		case 441036454:
+			return engine->outputChannels.secondIgnitionBlendBias;
 // coilState1
 		case -1124698530:
 			return engine->outputChannels.coilState1;
@@ -979,6 +997,12 @@ float getOutputValueByHash(const int hash) {
 // m_knockFuelTrimMultiplier
 		case 95716118:
 			return engine->module<KnockController>()->m_knockFuelTrimMultiplier;
+// hasKnockRecently
+		case -96478755:
+			return engine->module<KnockController>()->hasKnockRecently;
+// hasKnockRetardNow
+		case 1438916461:
+			return engine->module<KnockController>()->hasKnockRetardNow;
 // m_isPriming
 		case -612624925:
 			return engine->module<PrimeController>()->m_isPriming;
@@ -1012,6 +1036,18 @@ float getOutputValueByHash(const int hash) {
 // fan1radiatorFanStatus
 		case -1478067590:
 			return engine->module<FanControl1>()->radiatorFanStatus;
+// fan1pwmCurvePwm
+		case 86008152:
+			return engine->module<FanControl1>()->pwmCurvePwm;
+// fan1pwmTargetPwm
+		case -850386982:
+			return engine->module<FanControl1>()->pwmTargetPwm;
+// fan1pwmAppliedPwm
+		case -1368130286:
+			return engine->module<FanControl1>()->pwmAppliedPwm;
+// fan1pwmActive
+		case 638039515:
+			return engine->module<FanControl1>()->pwmActive;
 // fan2cranking
 		case 1841224793:
 			return engine->module<FanControl2>()->cranking;
@@ -1042,6 +1078,18 @@ float getOutputValueByHash(const int hash) {
 // fan2radiatorFanStatus
 		case -1778606949:
 			return engine->module<FanControl2>()->radiatorFanStatus;
+// fan2pwmCurvePwm
+		case 907263673:
+			return engine->module<FanControl2>()->pwmCurvePwm;
+// fan2pwmTargetPwm
+		case 481241435:
+			return engine->module<FanControl2>()->pwmTargetPwm;
+// fan2pwmAppliedPwm
+		case -374065485:
+			return engine->module<FanControl2>()->pwmAppliedPwm;
+// fan2pwmActive
+		case 705840892:
+			return engine->module<FanControl2>()->pwmActive;
 // isPrime
 		case -1429286498:
 			return engine->module<FuelPumpController>()->isPrime;
@@ -1138,6 +1186,12 @@ float getOutputValueByHash(const int hash) {
 // acrActive
 		case -1548941801:
 			return engine->engineState.acrActive;
+// isSecondVeTableActive
+		case 2127810012:
+			return engine->engineState.isSecondVeTableActive;
+// isSecondIgnitionTableActive
+		case -643103326:
+			return engine->engineState.isSecondIgnitionTableActive;
 // acrEngineMovedRecently
 		case -791147982:
 			return engine->engineState.acrEngineMovedRecently;

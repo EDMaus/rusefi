@@ -93,7 +93,7 @@
 ! This is the version of the data stored in flash configuration
 ! Any time an incompatible change is made to the configuration format stored in flash,
 ! update this string to the current date!
-#define FLASH_DATA_VERSION 260215
+#define FLASH_DATA_VERSION 260407
 
 ! Remove next line when Java toolset gets adjusted to load those from json config into VariablesRegistry
 ! Also remove file integration/generated/rusefi_config_generated_enums.txt
@@ -124,7 +124,6 @@ struct_no_prefix engine_configuration_s
 #define CLT_UPPER_LIMIT 250
 #define CLT_UPPER_VALIDATION_LIMIT 250
 
-#define MAP_UPPER_LIMIT 650
 
 #define LUA_PWM_COUNT 8
 #define LUA_DIGITAL_INPUT_COUNT 8
@@ -195,8 +194,6 @@ struct_no_prefix engine_configuration_s
 
 #define CRANKING_CURVE_SIZE 8
 
-#define IGN_LOAD_COUNT 16
-#define IGN_RPM_COUNT 16
 
 #define DIGIPOT_COUNT 4
 #define TRIGGER_SIMULATOR_PIN_COUNT 2
@@ -646,9 +643,11 @@ uint32_t cylindersCount;Number of cylinder the engine has.;"", 1, 0, 1, @@MAX_CY
 #define ts_show_startup_map_baro_grab true
 #define ts_show_wbo_canbus_index true
 #define ts_show_wbo_canbus_set_index true
+#define ts_show_update_wbo_2023_to_2026 true
 #define ts_show_wbo_canbus_set_type false
 #define ts_show_analog_ego true
 #define ts_show_ego2 true
+#define ts_show_traction_control true
 
 #define ts_show_gppwm1_pin true
 #define ts_show_gppwm2_pin true
@@ -739,8 +738,8 @@ adc_channel_e fuelLevelSensor;This is the processor pin that your fuel level sen
 struct trigger_config_s
 
 ! 'INVALID' for TT_VVT_* wheels
-!                                                                  2                                                  6                                                                                              12      SKYACTIV   14                                                                                                                                                                             25   dev 2JZ 3/34 simulator                       26         27                 28                   29            30                                    31             32                                                                                                         39                                                                                                                                                                                                                           55               56 Barra 3+1 Cam                                                                                                                                                                                                                                                                                                                                         79 Mitsu 6G72 Cam   80     81                     82         83                                                          88
-#define trigger_type_e_enum "custom toothed wheel", "Ford Aspire", "Dodge Neon 1995", "Miata NA", "INVALID", "GM_7X", "Daihatsu 3 cylinder", "Mazda SOHC 4", "60-2", "36-1", "Mercedes Two Segment", "Single Tooth", "EZ30", "INVALID", "Dodge Neon 2003 Cam", "Mazda DOHC 1+4", "1+1", "INVALID", "Half Moon", "Dodge Ram 1+16", "60-2 Wrong Polarity", "Benelli Tre", "Dodge Stratus", "36_2_2_2", "Nissan Primera", "INVALID",                                        "Rover K", "GM 24x 5 degree", "Honda CBR 600 Cam", "Nissan K11", "probably broken ChryslerNGC 36-2-2", "3-1 skipped", "Dodge Neon 2003 crank", "Miata NB", "INVALID", "INVALID", "Subaru 7+6", "Jeep 18-2-2-2", "12crank/24cam", "INVALID", "Jeep XJ 4 cyl", "FiatIAQ_P8", "Mazda Z5", "INVALID", "Renix 44-2-2", "Renix 66-2-2-2", "Honda K 12+1", "INVALID", "36-2", "Subaru SVX", "Suzuki K6A", "Subaru 7 without 6", "INVALID", "INVALID", "GM 60-2-2-2", "Skoda Favorit", "INVALID",       "Kawa KX450F", "Nissan VQ35", "INVALID", "Nissan VQ30", "Nissan QR25", "INVALID", "Subaru SVX Crank 1", "Subaru SVX Cam VVT", "Ford PIP", "Suzuki G13B", "Honda K 4+1", "Nissan MR18 Crank", "32-2", "36-2-1", "36-2-1-1", "3-0", "INVALID", "GM 24x 3 degree", "60-2-2 F3R", "Mitsu 4G63 Crank", "x2 30 Deg camshaft BTDC", "INVALID", "INVALID",          "6-0", "Daihatsu 4 cylinder", "INVALID", "dev", "Nissan HR", "Arctic Cat", "HR12 in", "HONDA J30A2", "trg88", "trg89", "Dodge/Chrysler/Jeep V8 5.7L", "Toyota UZ 3 tooth", "Jeep EVD 36-2-2", "Jeep 66-2-2-2", "Subaru 6 tooth Crank", "Suzuki G16B"
+!                                                                  2                                                  6                                                                                              12      SKYACTIV   14                                                                                                                                                                             25   dev 2JZ 3/34 simulator                       26         27                 28                   29            30                                    31             32                       33          34         35         36            37                                39                                                                                                                                                                                                                             55               56 Barra 3+1 Cam                                                                                                                                                                                                                                                                                                                                          79 Mitsu 6G72 Cam   80     81                     82         83                                                          88                                                                                                                                95             96
+#define trigger_type_e_enum "custom toothed wheel", "Ford Aspire", "Dodge Neon 1995", "Miata NA", "INVALID", "GM_7X", "Daihatsu 3 cylinder", "Mazda SOHC 4", "60-2", "36-1", "Mercedes Two Segment", "Single Tooth", "EZ30", "INVALID", "Dodge Neon 2003 Cam", "Mazda DOHC 1+4", "1+1", "INVALID", "Half Moon", "Dodge Ram 1+16", "60-2 Wrong Polarity", "Benelli Tre", "Dodge Stratus", "36_2_2_2", "Nissan Primera", "INVALID",                                        "Rover K", "GM 24x 5 degree", "Honda CBR 600 Cam", "Nissan K11", "probably broken ChryslerNGC 36-2-2", "3-1 skipped", "Dodge Neon 2003 crank", "Miata NB", "INVALID", "INVALID", "Subaru 7+6", "Jeep 18-2-2-2", "12crank/24cam", "Ford PIP6", "Jeep XJ 4 cyl", "FiatIAQ_P8", "Mazda Z5", "INVALID", "Renix 44-2-2", "Renix 66-2-2-2", "Honda K 12+1", "INVALID", "36-2", "Subaru SVX", "Suzuki K6A", "Subaru 7 without 6", "INVALID", "INVALID", "GM 60-2-2-2", "Skoda Favorit", "INVALID",       "Kawa KX450F", "Nissan VQ35", "INVALID", "Nissan VQ30", "Nissan QR25", "INVALID", "Subaru SVX Crank 1", "Subaru SVX Cam VVT", "Ford PIP8", "Suzuki G13B", "Honda K 4+1", "Nissan MR18 Crank", "32-2", "36-2-1", "36-2-1-1", "3-0", "INVALID", "GM 24x 3 degree", "60-2-2 F3R", "Mitsu 4G63 Crank", "x2 30 Deg camshaft BTDC", "INVALID", "INVALID",          "6-0", "Daihatsu 4 cylinder", "INVALID", "dev", "Nissan HR", "Arctic Cat", "HR12 in", "HONDA J30A2", "trg88", "trg89", "Dodge/Chrysler/Jeep V8 5.7L", "Toyota UZ 3 tooth", "Jeep EVD 36-2-2", "Jeep 66-2-2-2", "Subaru 6 tooth Crank", "Suzuki G16B", "Viper"
 
 custom trigger_type_e 4 bits, U32, @OFFSET@, [0:6], @@trigger_type_e_enum@@
 	trigger_type_e type;https://wiki.rusefi.com/All-Supported-Triggers
@@ -1218,8 +1217,8 @@ float idleStepperReactionTime;;"ms", 1, 0, 1, 300, 0
 
 int torqueReductionArmingApp;Pedal position to realize that we need to reduce torque when the trigger pin is triggered;"", 1, 0, 0, 20000, 0
 
-float referenceTorqueForGenerator
-float referenceMapForGenerator
+float referenceTorqueForGenerator;Reference Torque value;"Nm", 1, 0, 0, 1000, 0
+float referenceMapForGenerator;kPa/psi value at which Reference Torque is archived;{bitStringValue(pressureUnitsLabels, useMetricOnInterface)}, {useMetricOnInterface ? 1 : @@UNITS_KPA_TO_PSI@@}, 0, {useMetricOnInterface ? 0 : 0}, {useMetricOnInterface ? @@MAP_UPPER_LIMIT@@ : @@MAP_UPPER_LIMIT@@ * @@UNITS_KPA_TO_PSI@@}, 0
 float referenceVeForGenerator
 
 custom pin_mode_e 1 bits, U08, @OFFSET@, [0:6], $pin_mode_e_enum
@@ -1938,13 +1937,6 @@ float[TMF_RATIO_SIZE x TMF_SIZE] tmfTable;;"", 1, 0, 0, 255, 2
         float[TMF_RATIO_SIZE] tmfRatioBins;;"", 1, 0, 0, 65000, 1
         float[TMF_SIZE] tmfOpeningBins;;"", 1, 0, 0, 65000, 1
 
-#define TORQUE_CURVE_SIZE 6
-#define TORQUE_CURVE_RPM_SIZE 6
-
-uint8_t[TORQUE_CURVE_SIZE x TORQUE_CURVE_RPM_SIZE] autoscale torqueTable;;"Nm", 10, 0, 0, 255, 0
-        uint16_t[TORQUE_CURVE_RPM_SIZE] torqueRpmBins;;"RPM", 1, 0, 0, 65000, 0
-        uint16_t[TORQUE_CURVE_SIZE] torqueLoadBins;;"Load", 1, 0, 0, 65000, 0
-
 #define CRANKING_ENRICH_COUNT 6
 #define CRANKING_ENRICH_CLT_COUNT 6
 
@@ -2192,6 +2184,7 @@ uint8_t[ETB2_TRIM_RPM_SIZE] autoscale throttle2TrimRpmBins;;"RPM", @@RPM_AS_BYTE
 #define ts_show_sparkHardwareLatencyCorrection true
 #define ts_show_ignitionMode true
 #define ts_show_wbo_can_menu true
+#define ts_show_speedSensorCan true
 
 uint8_t[KNOCK_TABLE_SIZE x KNOCK_TABLE_RPM_SIZE] autoscale maxKnockRetardTable;;"deg", 0.25, 0, 0, 30, 2
 uint8_t[KNOCK_TABLE_SIZE] maxKnockRetardLoadBins;;"%", 1, 0, 0, 250, 0
@@ -2214,8 +2207,6 @@ uint16_t[ALS_RPM_SIZE] alsIgnSkiprpmBins;;"RPM",	   1, 0, 0, 25000, 0
 
 #define BLEND_TABLE_COUNT 8
 
-#define BLEND_FACTOR_SIZE 8
-
 struct blend_table_s
 	int16_t[BLEND_TABLE_COUNT x BLEND_TABLE_COUNT] autoscale table;;"", 0.1, 0, -100, 100, 1
 	uint16_t[BLEND_TABLE_COUNT] loadBins;;"Load", 1, 0, 0, 1000, 0
@@ -2232,6 +2223,7 @@ end_struct
 blend_table_s[IGN_BLEND_COUNT iterate] ignBlends
 blend_table_s[VE_BLEND_COUNT iterate] veBlends
 
+! secondVe and secondIgnition fields moved to config_page_4.txt (page4_s / TS page 4)
 #define THR_EST_SIZE 12
 
 uint16_t[THR_EST_SIZE] autoscale throttleEstimateEffectiveAreaBins;;"%", 0.1, 0, 0, 100, 1
@@ -2431,6 +2423,14 @@ bit wizardInjectorFlow,"yes","no"
 
 split_lines@@BOARD_CONFIG_FROM_FILE@@
 
+	uint8_t[6] autoscale knockGainLoadBins;;"", 10, 0, 0, 1000, 0
+	uint8_t[6] autoscale knockGainRpmBins;;"RPM", 100, 0, 0, 25000, 0
+
+	struct KnockGain
+		int8_t[6 x 6] table;;"dB", 1, 0, -80, 80, 0
+	end_struct
+
+	KnockGain[MAX_CYLINDER_COUNT iterate] knockGains
 end_struct
 
 #define VE_BLEND1_TABLE_NAME "VE blend 1"
@@ -2461,6 +2461,8 @@ end_struct
 #define VE_MENU_NAME "VE"
 #define VE_TABLE_NAME "VE Table"
 #define VE_MENU_MAP_NAME "VE 3D view"
+#define SECOND_VE_TABLE "Second VE Table"
+#define SECOND_IGNITION_TABLE "Second Ignition Table"
 #define IGNITION_ADVANCE_MENU_NAME "Ignition advance"
 #define IGNITION_ADVANCE_TABLE_NAME "Ignition Table"
 #define CAM_1_MODE_NAME "Cam mode (intake)"
@@ -2532,6 +2534,7 @@ end_struct
 #define GAUGE_CATEGORY_BOOST_CONTROL "Boost Control"
 #define GAUGE_CATEGORY_ETB "ETB more"
 #define GAUGE_CATEGORY_SENT "Sensors - SENT"
+#define GAUGE_CATEGORY_ECU_STATUS "ECU Status"
 
 #define GAUGE_NAME_VVS "Vehicle Speed"
 #define GAUGE_NAME_GEAR_RATIO "Gearbox Ratio"
@@ -2774,7 +2777,13 @@ end_struct
 
 #define MAIN_PAGE_GAUGES_FILE "tunerstudio/main_page_gauges.ini"
 #define GAUGES_DECLARATIONS_FILE "tunerstudio/gauge_declarations.ini"
+#define WE_SECTION_FILE "tunerstudio/WueAnalyze.ini"
+#define TUNING_SECTION_FILE "tunerstudio/tuning.ini"
 #define SECONDARY_PANELS_FILE "tunerstudio/secondary_panels.ini"
 #define TOP_LEVEL_MENU_FILE "tunerstudio/top_level_menu.ini"
 
 #define poke false
+
+#define BOARD_ACTION_INJECTOR_PRESET 0x302
+
+#define ETHERNET_PORT 29001

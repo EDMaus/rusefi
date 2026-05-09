@@ -12,6 +12,7 @@ import com.rusefi.core.FileUtil;
 import com.rusefi.core.SignatureHelper;
 import com.rusefi.core.RusEfiSignature;
 import com.rusefi.core.net.ConnectionAndMeta;
+import com.rusefi.core.net.PropertiesHolder;
 import com.rusefi.core.ui.AutoupdateUtil;
 import com.rusefi.io.ConnectionStatusLogic;
 import com.rusefi.ui.util.PinColors;
@@ -32,6 +33,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.*;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -44,20 +46,29 @@ import static com.rusefi.ui.util.PinColors.FALLBACK_NORMAL;
 /**
  * Displays ECU connector pinouts for the currently connected board.
  * Board is identified from the ECU signature (bundleTarget field).
- * Data is loaded from pinouts_raw/boards_meta.yaml and pinouts_raw/connectors.zip.
+ * Data is loaded from pinouts_raw/boards_meta.yaml and pinouts_raw/connectors.zip. if not custom metaname/path are loaded
  * Each connector is shown as a tab with an interactive image (pin markers) above a table.
  * Pin marker color can be switched between type-based and pigtail wire color.
  */
 public class PinoutPane {
     private static final Logging log = getLogging(PinoutPane.class);
 
-    private static final String BOARDS_META = "pinouts_raw/boards_meta.yaml";
     private static final String PINOUTS_DIR = "pinouts_raw";
     private static final String[] COLUMNS = {"Pin", "Function", "Type", "Class", "TS Name", "Pigtail color", "Tune use"};
 
-    private static final String PINOUT_BASE_URL = "https://rusefi.com/docs/";
-    private static final String REMOTE_META_PATH = "pinouts_raw/boards_meta.yaml";
     private static final String PINOUT_CACHE_DIR = FileUtil.RUSEFI_SETTINGS_FOLDER + "pinouts" + File.separator;
+
+    private static String pinoutBaseUrl() {
+        return PropertiesHolder.getPinoutBaseUrl();
+    }
+
+    private static String pinoutMetaName() {
+        return PropertiesHolder.getPinoutMetaName();
+    }
+
+    private static String boardsMetaRelativePath() {
+        return PINOUTS_DIR + "/" + pinoutMetaName();
+    }
 
     private final JPanel content = new JPanel(new BorderLayout());
     private final JLabel statusLabel = new JLabel("Not connected", SwingConstants.CENTER);
@@ -69,6 +80,14 @@ public class PinoutPane {
     private final List<ConnectorImagePanel> activeImagePanels = new ArrayList<>();
     /** All table models currently displayed — updated alongside activeImagePanels. */
     private final List<DefaultTableModel> activeTableModels = new ArrayList<>();
+    /** JTables aligned index-for-index with {@link #activeTableModels}; needed to drive row selection from {@link #highlightByEnumValue}. */
+    private final List<JTable> activeTables = new ArrayList<>();
+    /** Tab host for connectors; held as a field so {@link #highlightByEnumValue} can switch connector. */
+    private JTabbedPane connectorTabs;
+    /** Callback fired on double-click of a pin row that has a tune field currently assigned to it. Args: dialogKey, fieldKey. */
+    private BiConsumer<String, String> navigateToTune;
+    /** Latest config image observed via uiContext.addConfigImageListener — reflects unburned Tune edits. Prefer over BinaryProtocol.getControllerConfiguration(). */
+    private ConfigurationImage liveConfigImage;
     // ---- Color mode ----
 
     enum ColorMode { TYPE, PIGTAIL }
@@ -381,7 +400,10 @@ public class PinoutPane {
             }
         }));
 
-        uiContext.addConfigImageListener(ci -> SwingUtilities.invokeLater(() -> refreshTuneUse(ci)));
+        uiContext.addConfigImageListener(ci -> SwingUtilities.invokeLater(() -> {
+            liveConfigImage = ci;
+            refreshTuneUse(ci);
+        }));
     }
 
     public JPanel getContent() {
@@ -400,6 +422,9 @@ public class PinoutPane {
         statusLabel.setText("Not connected");
         activeImagePanels.clear();
         activeTableModels.clear();
+        activeTables.clear();
+        connectorTabs = null;
+        liveConfigImage = null;
         setCenterPanel(null);
     }
 
@@ -421,7 +446,7 @@ public class PinoutPane {
         statusLabel.setText("Board: " + boardKey);
 
         if (boardsData == null) {
-            statusLabel.setText("Board: " + boardKey + "  [pinout data not found — expected: " + new File(BOARDS_META).getAbsolutePath() + "]");
+            statusLabel.setText("Board: " + boardKey + "  [pinout data not found — expected: " + new File(boardsMetaRelativePath()).getAbsolutePath() + "]");
             activeImagePanels.clear();
             setCenterPanel(null);
             return;
@@ -444,6 +469,8 @@ public class PinoutPane {
     private void buildConnectorTabs(List<String> connectorPaths, String zipName) {
         activeImagePanels.clear();
         activeTableModels.clear();
+        activeTables.clear();
+        connectorTabs = null;
 
         File zipFile = findFile(PINOUTS_DIR + "/" + zipName);
         if (zipFile == null) {
@@ -472,6 +499,7 @@ public class PinoutPane {
         for (ConnectorData cd : connectors) {
             tabs.addTab(cd.title, buildConnectorPanel(cd, tuneUseMap));
         }
+        connectorTabs = tabs;
         setCenterPanel(tabs);
     }
 
@@ -499,6 +527,26 @@ public class PinoutPane {
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
         packColumns(table);
+        activeTables.add(table);
+
+        // Double-click a row → jump to the tune field currently driving that pin, if any.
+        table.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() != 2 || navigateToTune == null) return;
+                int viewRow = table.rowAtPoint(e.getPoint());
+                if (viewRow < 0) return;
+                int modelRow = table.convertRowIndexToModel(viewRow);
+                String pinName = YamlUtil.toStr(model.getValueAt(modelRow, 0));
+                String tsName  = YamlUtil.toStr(model.getValueAt(modelRow, 4));
+                String iniKey  = tsName.replace("___", pinName).trim();
+                if (iniKey.isEmpty()) return;
+                String[] assignment = findPinAssignment(iniKey);
+                if (assignment != null) {
+                    navigateToTune.accept(assignment[1], assignment[0]);
+                }
+            }
+        });
 
         JPanel panel = new JPanel(new BorderLayout());
 
@@ -640,6 +688,78 @@ public class PinoutPane {
         }
     }
 
+    public void setNavigateToTune(BiConsumer<String, String> navigateToTune) {
+        this.navigateToTune = navigateToTune;
+    }
+
+    /**
+     * Selects the connector tab + row whose expanded ts_name matches the given enum value,
+     * causing the existing selection listener to also highlight the pin marker on the image.
+     * No-op if no row matches (e.g. value is NONE, or pin lives on a connector not currently shown).
+     */
+    public void highlightByEnumValue(String enumValue) {
+        if (enumValue == null || connectorTabs == null) return;
+        String target = enumValue.replace("\"", "").trim();
+        if (target.isEmpty() || "NONE".equalsIgnoreCase(target) || "INVALID".equalsIgnoreCase(target)) return;
+        int connectorCount = Math.min(activeTableModels.size(), activeTables.size());
+        for (int i = 0; i < connectorCount; i++) {
+            DefaultTableModel model = activeTableModels.get(i);
+            JTable table = activeTables.get(i);
+            for (int modelRow = 0; modelRow < model.getRowCount(); modelRow++) {
+                String pinName = YamlUtil.toStr(model.getValueAt(modelRow, 0));
+                String tsName  = YamlUtil.toStr(model.getValueAt(modelRow, 4));
+                String iniKey  = tsName.replace("___", pinName).trim();
+                if (target.equals(iniKey)) {
+                    if (i < connectorTabs.getTabCount()) connectorTabs.setSelectedIndex(i);
+                    int viewRow = table.convertRowIndexToView(modelRow);
+                    table.setRowSelectionInterval(viewRow, viewRow);
+                    table.scrollRectToVisible(table.getCellRect(viewRow, 0, true));
+                    return;
+                }
+            }
+        }
+    }
+
+    /**
+     * Returns {fieldKey, dialogKey} for whichever pin-enum field currently resolves to {@code iniKey},
+     * or null if no field (or dialog) currently holds that assignment.
+     */
+    private String[] findPinAssignment(String iniKey) {
+        IniFileModel ini = uiContext.iniFileState.getIniFileModel();
+        if (ini == null) return null;
+        ConfigurationImage ci = currentConfigImage();
+        if (ci == null) return null;
+
+        for (Map.Entry<String, IniField> entry : ini.getAllIniFields().entrySet()) {
+            IniField field = entry.getValue();
+            if (!(field instanceof EnumIniField)) continue;
+            String key = entry.getKey();
+            if (!key.toLowerCase().matches(".*pins?\\d*")) continue;
+
+            String rawValue;
+            try {
+                rawValue = ConfigurationImageGetterSetter.getStringValue(field, ci);
+            } catch (Exception ignored) {
+                continue;
+            }
+            String value = rawValue.replace("\"", "").trim();
+            if (!iniKey.equals(value)) continue;
+
+            String dialogKey = findDialogForField(ini, key);
+            if (dialogKey != null) return new String[]{key, dialogKey};
+        }
+        return null;
+    }
+
+    private static String findDialogForField(IniFileModel ini, String fieldKey) {
+        for (DialogModel d : ini.getDialogs().values()) {
+            for (DialogModel.Field f : d.getFields()) {
+                if (fieldKey.equals(f.getKey())) return d.getKey();
+            }
+        }
+        return null;
+    }
+
     /**
      * Builds a map from TunerStudio pin name (ts_name) to the human-readable label(s) of
      * any tune field currently assigned to that pin.
@@ -647,12 +767,18 @@ public class PinoutPane {
      * the convention used throughout rusEFI for pin-selector enum fields.
      */
     private Map<String, String> buildTuneUseMap() {
-        BinaryProtocol bp = uiContext.getBinaryProtocol();
         IniFileModel ini = uiContext.iniFileState.getIniFileModel();
-        if (bp == null || ini == null) return Collections.emptyMap();
-        ConfigurationImage ci = bp.getControllerConfiguration();
+        if (ini == null) return Collections.emptyMap();
+        ConfigurationImage ci = currentConfigImage();
         if (ci == null) return Collections.emptyMap();
         return buildTuneUseMap(ini, ci);
+    }
+
+    /** Prefer the live (possibly unburned) image if we've seen one; otherwise fall back to the last burned image. */
+    private ConfigurationImage currentConfigImage() {
+        if (liveConfigImage != null) return liveConfigImage;
+        BinaryProtocol bp = uiContext.getBinaryProtocol();
+        return bp != null ? bp.getControllerConfiguration() : null;
     }
 
     /**
@@ -721,7 +847,7 @@ public class PinoutPane {
 
     @SuppressWarnings("unchecked")
     private Map<String, Map<String, Object>> loadBoardsMeta() {
-        File metaFile = findFile(BOARDS_META);
+        File metaFile = findFile(boardsMetaRelativePath());
         log.info("loadBoardsMeta: metaFile=" + (metaFile != null ? metaFile.getAbsolutePath() : "not found"));
         if (metaFile == null) return null;
         try (InputStream is = Files.newInputStream(metaFile.toPath())) {
@@ -750,12 +876,13 @@ public class PinoutPane {
         File cacheDir = new File(PINOUT_CACHE_DIR);
         log.info("Pinout cache dir: " + cacheDir.getAbsolutePath());
         cacheDir.mkdirs();
-        File cachedYaml = new File(cacheDir, "boards_meta.yaml");
+        File cachedYaml = new File(cacheDir, pinoutMetaName());
 
-        log.info("Fetching remote pinout yaml from " + PINOUT_BASE_URL + REMOTE_META_PATH);
+        String remoteMetaPath = boardsMetaRelativePath();
+        log.info("Fetching remote pinout yaml from " + pinoutBaseUrl() + remoteMetaPath);
         String remoteYaml;
         try {
-            remoteYaml = downloadText(REMOTE_META_PATH);
+            remoteYaml = downloadText(remoteMetaPath);
             log.info("Remote pinout yaml fetched, length=" + remoteYaml.length());
         } catch (IOException e) {
             log.warn("Could not fetch remote pinout metadata: " + e, e);
@@ -806,7 +933,7 @@ public class PinoutPane {
             }
             log.info("Downloading pinout zip " + zipName + " to " + cachedZip.getAbsolutePath());
             try {
-                ConnectionAndMeta meta = new ConnectionAndMeta("pinouts_raw/" + zipName).invoke(PINOUT_BASE_URL);
+                ConnectionAndMeta meta = new ConnectionAndMeta("pinouts_raw/" + zipName).invoke(pinoutBaseUrl());
                 log.info("Zip " + zipName + " remote size=" + meta.getCompleteFileSize());
                 AutoupdateUtil.downloadAutoupdateFile(cachedZip.getAbsolutePath(), meta, "Updating pinout data: " + zipName);
                 log.info("Pinout zip " + zipName + " downloaded successfully");
@@ -830,7 +957,7 @@ public class PinoutPane {
     }
 
     private static String downloadText(String remotePath) throws IOException {
-        ConnectionAndMeta meta = new ConnectionAndMeta(remotePath).invoke(PINOUT_BASE_URL);
+        ConnectionAndMeta meta = new ConnectionAndMeta(remotePath).invoke(pinoutBaseUrl());
         try (InputStream in = meta.getHttpConnection().getInputStream()) {
             return new String(in.readAllBytes(), StandardCharsets.UTF_8);
         }

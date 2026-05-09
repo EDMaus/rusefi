@@ -21,8 +21,10 @@ import java.util.List;
 /**
  * This utility produces images of trigger signals supported by rusEFI
  * <p>
+ *  rusefi_documentation\Images\triggers is the ultimate destination for these files
  * 06/23/15
  * Andrey Belomutskiy, (c) 2013-2020
+ * See TriggerWheelInfoTest for custom format
  */
 public class TriggerImage {
     private static final String OUTPUT_FOLDER = "triggers";
@@ -90,8 +92,8 @@ public class TriggerImage {
                 return "36/1";
             case TT_TOOTHED_WHEEL_36_2:
                 return "36/2";
-            case TT_TRI_TACH:
-                return "TriTach";
+// too dead            case TT_TRI_TACH:
+//                return "TriTach";
             case TT_TOOTHED_WHEEL_60_2:
                 return "60/2";
             case TT_GM_60_2_2_2:
@@ -100,7 +102,10 @@ public class TriggerImage {
         return triggerName.getTriggerName();
     }
 
-    public static void main(String[] args) throws InvocationTargetException, InterruptedException {
+    public static void main(String[] args) throws Exception {
+        String workingFolder = args.length > 0 ? args[0] : TriggerWheelInfo.DEFAULT_WORK_FOLDER;
+        TriggerMarkdownGenerator.generate(workingFolder, "triggers.md");
+
         SwingUtilities2.invokeAndWait(() -> {
             try {
                 runAwt(args);
@@ -157,7 +162,7 @@ public class TriggerImage {
             TriggerWheelInfo.readWheels(workingFolder, wheelInfo -> onWheel(triggerPanel, topPanel, content, wheelInfo));
         });
         Thread.sleep(1000L * sleepAtEnd);
-        System.exit(-1);
+        System.exit(0);
     }
 
     private static void onWheel(TriggerPanel triggerPanel, JPanel topPanel, JPanel content, TriggerWheelInfo triggerWheelInfo) {

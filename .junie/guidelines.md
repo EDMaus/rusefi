@@ -1,5 +1,7 @@
 ### Project Structure and Module Locations
 
+See also CLAUDE.md, .junie/ts-help-topic.md and .junie/ts-readme.md
+
 rusEFI is an open-source engine control unit firmware for STM32 microcontrollers.
 
 Main firmware is located in `firmware` folder (relative to project root). This is C++ code.
@@ -38,9 +40,8 @@ That .ini file would be parsed into IniFileModel instance giving java code knowl
 - Source code for `:ui` is in `../java_console/ui/src/main/java`.
 
 #### UI entry points
-- rusefi_updater.exe (see console_launcher folder for launch4j) invokes Autoupdate#main with args="basic-ui" which points at BasicStartupFrame::runTool: Focuses on firmware updater
+- rusefi_updater.exe (see console_launcher folder for launch4j) invokes Launcher#main with empty args; the merged launcher handles both the autoupdate flow and the console UI
 - rusefi_autoupdate.exe entry point is Autoupdate#main
-- rusefi_console.exe invokes Launcher#main with empty args
 
 #### Key frontend java application classes
 AbstractIoStream: Base class for communication streams that manages byte counters, activity tracking, and listener notification.
@@ -88,3 +89,7 @@ GaugesGrid: Manages the visual container by wrapping a JPanel with a GridLayout 
 GaugesGridElement: Acts as a factory wrapper for individual slots, toggling between gauge and graph modes based on persistent Node configuration.
 
 See CLAUDE.md
+
+### Coding Style
+- Always use curly brackets for `if` statements, even for single-line blocks.
+

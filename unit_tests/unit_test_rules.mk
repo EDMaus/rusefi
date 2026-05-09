@@ -15,6 +15,8 @@ PCHSUB = unit_tests
 include $(PROJECT_DIR)/rusefi_rules.mk
 
 # User may want to pass in a forced value for SANITIZE
+# SANITIZE=yes enables AddressSanitizer (ASan) which is incompatible with Valgrind.
+# If you want to run Valgrind, you must use SANITIZE=no.
 ifeq ($(SANITIZE),)
 	ifneq ($(OS),Windows_NT)
 		SANITIZE = yes
@@ -161,13 +163,6 @@ CWARN = -Wall -Wextra -Wstrict-prototypes -pedantic -Wmissing-prototypes -Wold-s
 
 # Define C++ warning options here
 CPPWARN = -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -Wno-unused-variable -Wno-format -Wno-unused-parameter
-
-# TODO: improve on this code duplication drama!
-# current problem with older gcc in unit_tests is
-# cc1plus: error: unrecognized command line option \u2018-Wno-unused-private-field\u2019 [-Werror]
-#RULESFILE = ../firmware/rusefi_rules.mk
-#include $(RULESFILE)
-#USE_OPT += $(RUSEFI_OPT) -Wno-error=pedantic
 
 USE_OPT += -Werror=switch
 

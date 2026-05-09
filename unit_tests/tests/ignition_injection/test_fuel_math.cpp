@@ -306,7 +306,7 @@ TEST(FuelMath, IdleVeTable) {
 	engineConfiguration->idlePidDeactivationTpsThreshold = 10;
 
 	// Set TPS so this works
-	Sensor::setMockValue(SensorType::Tps1, 0);
+	Sensor::setMockValue(SensorType::DriverThrottleIntent, 0);
 
 	// Gets normal VE table
 	idler.isIdling = false;
@@ -317,21 +317,82 @@ TEST(FuelMath, IdleVeTable) {
 	EXPECT_FLOAT_EQ(dut.getVe(1000, 50, false), 0.4f);
 
 	// Below half threshold, fully use idle VE table
-	Sensor::setMockValue(SensorType::Tps1, 0);
+	Sensor::setMockValue(SensorType::DriverThrottleIntent, 0);
 	EXPECT_FLOAT_EQ(dut.getVe(1000, 50, false), 0.4f);
-	Sensor::setMockValue(SensorType::Tps1, 2);
+	Sensor::setMockValue(SensorType::DriverThrottleIntent, 2);
 	EXPECT_FLOAT_EQ(dut.getVe(1000, 50, false), 0.4f);
-	Sensor::setMockValue(SensorType::Tps1, 5);
+	Sensor::setMockValue(SensorType::DriverThrottleIntent, 5);
 	EXPECT_FLOAT_EQ(dut.getVe(1000, 50, false), 0.4f);
 
 	// As TPS approaches idle threshold, phase-out the idle VE table
 
-	Sensor::setMockValue(SensorType::Tps1, 6);
+	Sensor::setMockValue(SensorType::DriverThrottleIntent, 6);
 	EXPECT_FLOAT_EQ(dut.getVe(1000, 50, false), 0.42f);
-	Sensor::setMockValue(SensorType::Tps1, 8);
+	Sensor::setMockValue(SensorType::DriverThrottleIntent, 8);
 	EXPECT_FLOAT_EQ(dut.getVe(1000, 50, false), 0.46f);
-	Sensor::setMockValue(SensorType::Tps1, 10);
+	Sensor::setMockValue(SensorType::DriverThrottleIntent, 10);
 	EXPECT_FLOAT_EQ(dut.getVe(1000, 50, false), 0.5f);
+}
+
+TEST(FuelMath, VeSwitchTable) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+
+	MockAirmass dut;
+
+	// Primary VE table returns 50%
+	EXPECT_CALL(dut.veTable, getValue(_, _)).WillRepeatedly(Return(50));
+
+	// Second VE table returns 80%
+	setTable(secondTablesGetState()->secondVeTable, 80);
+
+	secondTablesGetState()->secondVeTableInput = Gpio::A0;
+
+	// Pin HIGH -> second table
+	setMockState(Gpio::A0, true);
+	EXPECT_NEAR(dut.getVe(1000, 50, false), 0.8f, EPS4D);
+
+	// Pin LOW -> primary table
+	setMockState(Gpio::A0, false);
+	EXPECT_NEAR(dut.getVe(1000, 50, false), 0.5f, EPS4D);
+
+	// No pin configured -> primary table
+	secondTablesGetState()->secondVeTableInput = Gpio::Unassigned;
+	EXPECT_NEAR(dut.getVe(1000, 50, false), 0.5f, EPS4D);
+}
+
+TEST(FuelMath, VeSwitchTableBlend) {
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+
+	MockAirmass dut;
+
+	// Primary VE table returns 50%, switch table returns 80%
+	EXPECT_CALL(dut.veTable, getValue(_, _)).WillRepeatedly(Return(50));
+	setTable(secondTablesGetState()->secondVeTable, 80);
+
+	secondTablesGetState()->secondVeTableInput = Gpio::Unassigned; // no pin, blend controls it
+
+	// Configure blend: TPS controls blend, 0% TPS -> 0% blend, 100% TPS -> 100% blend
+	secondTablesGetState()->secondVeBlendParameter = GPPWM_Tps;
+	setLinearCurve(secondTablesGetState()->secondVeBlendBins, 0, 100, 1);
+	setLinearCurve(secondTablesGetState()->secondVeBlendValues, 0, 100, 1);
+
+	// TPS = 0 -> 0% blend -> primary table (50%)
+	Sensor::setMockValue(SensorType::Tps1, 0);
+	EXPECT_NEAR(dut.getVe(1000, 50, false), 0.5f, EPS4D);
+
+	// TPS = 50 -> 50% blend -> midpoint between 50% and 80% = 65%
+	Sensor::setMockValue(SensorType::Tps1, 50);
+	EXPECT_NEAR(dut.getVe(1000, 50, false), 0.65f, EPS4D);
+
+	// TPS = 100 -> 100% blend -> fully switched (80%)
+	Sensor::setMockValue(SensorType::Tps1, 100);
+	EXPECT_NEAR(dut.getVe(1000, 50, false), 0.8f, EPS4D);
+
+	// Pin takes priority over blend when active
+	secondTablesGetState()->secondVeTableInput = Gpio::A0;
+	setMockState(Gpio::A0, true);
+	Sensor::setMockValue(SensorType::Tps1, 0); // blend would give primary, but pin forces switch
+	EXPECT_NEAR(dut.getVe(1000, 50, false), 0.8f, EPS4D);
 }
 
 TEST(FuelMath, getCycleFuelMassTest) {
@@ -479,4 +540,43 @@ TEST(AirmassModes, PredictiveMapCalculation) {
 
 	// Should use the fallback MAP from the table
 	EXPECT_FLOAT_EQ(dut.getMap(1500, false), 85.0f);
+}
+
+// Verifies that the blend target tracks the rising sensor value rather than
+// the stale pre-event snapshot, avoiding a lean dip during long transients.
+TEST(AirmassModes, PredictiveMapBlendTowardRisingSensor) {
+	StrictMock<MockVp3d> veTable;
+	StrictMock<MockVp3d> mapFallback;
+
+	EXPECT_CALL(mapFallback, getValue(1500, 30.0f))
+		.WillRepeatedly(Return(85.0f));
+
+	EngineTestHelper eth(engine_type_e::TEST_ENGINE);
+
+	engineConfiguration->accelEnrichmentMode = AE_MODE_PREDICTIVE_MAP;
+	for (auto index = 0; index < efi::size(config->predictiveMapBlendDurationValues); index++) {
+		config->predictiveMapBlendDurationValues[index] = 0.5f; // 500ms blend
+	}
+
+	SpeedDensityAirmass dut(veTable, mapFallback);
+
+	Sensor::setMockValue(SensorType::Tps1, 30.0f);
+	Sensor::setMockValue(SensorType::Map, 65.0f);
+
+	// Trigger prediction: predicted=85, sensor=65
+	auto& tpsAccel = *engine->module<TpsAccelEnrichment>();
+	tpsAccel.m_accelEventJustOccurred = true;
+	EXPECT_FLOAT_EQ(dut.getMap(1500, false), 85.0f);
+
+	// Sensor rises to 75 kPa (manifold filling up)
+	Sensor::setMockValue(SensorType::Map, 75.0f);
+
+	// At 50% blend with rising sensor: 85 + (75-85)*0.5 = 80.0
+	// Old code would give: 85 + (65-85)*0.5 = 75.0
+	eth.moveTimeForwardMs(250);
+	EXPECT_NEAR(dut.getMap(1500, false), 80.0f, EPS4D);
+
+	// Sensor catches up to predicted — prediction exits early
+	Sensor::setMockValue(SensorType::Map, 90.0f);
+	EXPECT_FLOAT_EQ(dut.getMap(1500, false), 90.0f);
 }

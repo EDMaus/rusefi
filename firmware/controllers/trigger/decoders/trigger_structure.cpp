@@ -118,7 +118,8 @@ angle_t TriggerWaveform::getCycleDuration() const {
 		return FOUR_STROKE_CYCLE_DURATION / SYMMETRICAL_CRANK_SENSOR_DIVIDER;
 	case FOUR_STROKE_THREE_TIMES_CRANK_SENSOR:
 		return FOUR_STROKE_CYCLE_DURATION / SYMMETRICAL_THREE_TIMES_CRANK_SENSOR_DIVIDER;
-	case FOUR_STROKE_SIX_TIMES_CRANK_SENSOR:
+		case FOUR_STROKE_FIVE_TIMES_CRANK_SENSOR:
+			return FOUR_STROKE_CYCLE_DURATION / SYMMETRICAL_FIVE_TIMES_CRANK_SENSOR_DIVIDER;case FOUR_STROKE_SIX_TIMES_CRANK_SENSOR:
 		return FOUR_STROKE_CYCLE_DURATION / SYMMETRICAL_SIX_TIMES_CRANK_SENSOR_DIVIDER;
 	case FOUR_STROKE_TWELVE_TIMES_CRANK_SENSOR:
 		return FOUR_STROKE_CYCLE_DURATION / SYMMETRICAL_TWELVE_TIMES_CRANK_SENSOR_DIVIDER;
@@ -138,6 +139,7 @@ bool TriggerWaveform::needsDisambiguation() const {
 		case FOUR_STROKE_CRANK_SENSOR:
 		case FOUR_STROKE_SYMMETRICAL_CRANK_SENSOR:
 		case FOUR_STROKE_THREE_TIMES_CRANK_SENSOR:
+		case FOUR_STROKE_FIVE_TIMES_CRANK_SENSOR:
 		case FOUR_STROKE_SIX_TIMES_CRANK_SENSOR:
 		case FOUR_STROKE_TWELVE_TIMES_CRANK_SENSOR:
 			return true;
@@ -160,6 +162,7 @@ bool TriggerWaveform::needsDisambiguation() const {
 size_t TriggerWaveform::getLength() const {
 	/**
 	 * 24 for FOUR_STROKE_TWELVE_TIMES_CRANK_SENSOR
+	 * 10 for FOUR_STROKE_FIVE_TIMES_CRANK_SENSOR
 	 * 6 for FOUR_STROKE_THREE_TIMES_CRANK_SENSOR
 	 * 4 for FOUR_STROKE_SYMMETRICAL_CRANK_SENSOR
 	 * 2 for FOUR_STROKE_CRANK_SENSOR
@@ -492,8 +495,11 @@ void TriggerWaveform::initializeTriggerWaveform(operation_mode_e triggerOperatio
 		initializeSuzukiG16B(this);
 		break;
 
-	case trigger_type_e::TT_FORD_TFI_PIP:
-		configureFordPip(this);
+	case trigger_type_e::TT_FORD_TFI_PIP_6:
+		configureFordPip6(this);
+		break;
+	case trigger_type_e::TT_FORD_TFI_PIP_8:
+		configureFordPip8(this);
 		break;
 
 	case trigger_type_e::TT_FORD_ST170:
@@ -517,7 +523,6 @@ void TriggerWaveform::initializeTriggerWaveform(operation_mode_e triggerOperatio
 		break;
 
 	case trigger_type_e::TT_DODGE_NEON_1995:
-	case trigger_type_e::TT_UNUSED_39:
 		configureNeon1995TriggerWaveformOnlyCrank(this);
 		break;
 
@@ -812,9 +817,9 @@ void TriggerWaveform::initializeTriggerWaveform(operation_mode_e triggerOperatio
 		break;
 
 	case trigger_type_e::TT_TRI_TACH:
-		configureTriTach(this);
-		break;
-
+// too dead		configureTriTach(this);
+//		break;
+//
 	case trigger_type_e::TT_GM_24x_5:
 		initGmLS24_5deg(this);
 		break;
@@ -843,7 +848,9 @@ void TriggerWaveform::initializeTriggerWaveform(operation_mode_e triggerOperatio
 		initializeJeepRenix66_2_2(this);
 		break;
 
-	case trigger_type_e::TT_UNUSED_96:
+	case trigger_type_e::TT_VIPER_V10_CRANK:
+	case trigger_type_e::TT_UNUSED_97:
+	case trigger_type_e::TT_UNUSED_98:
 	case trigger_type_e::TT_SUBARU_7_6_CRANK:
 		initializeSubaru7_6_crankOnly(this);
 		break;

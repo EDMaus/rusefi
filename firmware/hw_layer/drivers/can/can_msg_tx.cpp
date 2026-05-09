@@ -19,6 +19,8 @@
 fifo_buffer<CANTxFrame, TEST_CAN_BUFFER_SIZE> txCanBuffer;
 #endif // EFI_SIMULATOR
 
+bool verboseCanTxError = false;
+
 #if EFI_CAN_SUPPORT
 /*static*/ CANDriver* CanTxMessage::s_devices[EFI_CAN_BUS_COUNT] = {
 	nullptr,
@@ -29,8 +31,8 @@ fifo_buffer<CANTxFrame, TEST_CAN_BUFFER_SIZE> txCanBuffer;
 };
 
 /*static*/ void CanTxMessage::setDevice(size_t idx, CANDriver* device) {
-	if (idx > efi::size(s_devices)) {
-		criticalError("Attemp to install CAN%d bus!", idx + 1);
+	if (idx >= efi::size(s_devices)) {
+		criticalError("Cannot install CAN%d bus!", idx + 1);
 		return;
 	}
 	s_devices[idx] = device;
@@ -132,6 +134,18 @@ CanTxMessage::~CanTxMessage() {
 extern int txErrorCount[EFI_CAN_BUS_COUNT];
 		engine->outputChannels.canWriteNotOk++;
 		txErrorCount[busIndex]++;
+
+		if (verboseCanTxError) {
+		  efiPrintf("%s TX ERR CAN%d message: ID=%x/l=%x %x %x %x %x %x %x %x %x",
+				getCanCategory(category),
+				busIndex + 1,
+				(unsigned int)CAN_ID(m_frame),
+				m_frame.DLC,
+				m_frame.data8[0], m_frame.data8[1],
+				m_frame.data8[2], m_frame.data8[3],
+				m_frame.data8[4], m_frame.data8[5],
+				m_frame.data8[6], m_frame.data8[7]);
+		}
 	}
 #endif // EFI_TUNER_STUDIO
 #endif /* EFI_CAN_SUPPORT */
@@ -161,6 +175,13 @@ void CanTxMessage::setBus(size_t bus) {
 void CanTxMessage::setShortValue(uint16_t value, size_t offset) {
 	m_frame.data8[offset] = value & 0xFF;
 	m_frame.data8[offset + 1] = value >> 8;
+}
+
+void CanTxMessage::setIntValueLsb(uint32_t value, size_t offset) {
+	m_frame.data8[offset] = value & 0xFF;
+	m_frame.data8[offset + 1] = (value >> 8) & 0xFF;
+	m_frame.data8[offset + 2] = (value >> 16) & 0xFF;
+	m_frame.data8[offset + 3] = (value >> 24) & 0xFF;
 }
 
 // MOTOROLA order, MSB (Most Significant Byte/Big Endian) comes first.

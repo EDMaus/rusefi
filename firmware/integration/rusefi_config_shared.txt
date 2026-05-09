@@ -32,6 +32,15 @@
 #define VE_RPM_COUNT 16
 #define VE_LOAD_COUNT 16
 
+#define MAP_UPPER_LIMIT 650
+
+#define IGN_LOAD_COUNT 16
+#define IGN_RPM_COUNT 16
+#define BLEND_FACTOR_SIZE 8
+
+#define TORQUE_CURVE_SIZE 6
+#define TORQUE_CURVE_RPM_SIZE 6
+
 #define TCU_GEAR_COUNT 10
 #define EGT_CHANNEL_COUNT 8
 
@@ -92,7 +101,7 @@
 #define GAUGE_NAME_TIME "Time"
 #define GAUGE_NAME_RPM "RPM"
 #define GAUGE_NAME_CLT "CLT"
-#define GAUGE_NAME_IAT "IAT"
+#define GAUGE_NAME_IAT "Intake Air IAT"
 #define GAUGE_NAME_AUX_TEMP1 "Aux temp 1"
 #define GAUGE_NAME_AUX_TEMP2 "Aux temp 2"
 #define GAUGE_NAME_TPS "TPS"
