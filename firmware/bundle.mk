@@ -105,8 +105,6 @@ ROOT_FOLDER_SOURCES = \
 # todo: remove BootCommander.exe once https://github.com/rusefi/rusefi/issues/6358 is done
 
 CONSOLE_FOLDER_SOURCES = \
-  ../misc/console_launcher/rusefi_autoupdate.exe \
-  ../misc/console_launcher/installation.properties \
   $(SIMULATOR_EXE)
 
 #  $(wildcard ../java_console/*.dll) \
@@ -170,14 +168,12 @@ UPDATE_BUNDLE_FILES = \
 FOLDER_TARGETS = $(addprefix $(FOLDER)/,$(notdir $(FOLDER_SOURCES)))
 ROOT_FOLDER_TARGETS = $(addprefix $(FOLDER)/,$(notdir $(ROOT_FOLDER_SOURCES)))
 CONSOLE_FOLDER_TARGETS = $(addprefix $(CONSOLE_FOLDER)/,$(notdir $(CONSOLE_FOLDER_SOURCES)))
-LEGACY_CONSOLE_LAUNCHER = $(CONSOLE_FOLDER)/rusefi_console.exe
 
 FULL_BUNDLE_CONTENT = \
   $(ST_DRIVERS) \
   $(FOLDER_TARGETS) \
   $(ROOT_FOLDER_TARGETS) \
-  $(CONSOLE_FOLDER_TARGETS) \
-  $(LEGACY_CONSOLE_LAUNCHER)
+  $(CONSOLE_FOLDER_TARGETS)
 
 BUNDLE_FILES = \
   $(UPDATE_BUNDLE_FILES) \
@@ -314,6 +310,3 @@ $(FOLDER_TARGETS) $(UPDATE_FOLDER_TARGETS) $(ROOT_FOLDER_TARGETS): $(FOLDER)/%: 
 
 $(CONSOLE_FOLDER_TARGETS) $(UPDATE_CONSOLE_FOLDER_TARGETS): $(CONSOLE_FOLDER)/%: $$(filter $$(PERCENT)$$*,$(CONSOLE_FOLDER_SOURCES) $(UPDATE_CONSOLE_FOLDER_SOURCES)) | $(CONSOLE_FOLDER)
 	ln -rfs $< $@
-
-$(LEGACY_CONSOLE_LAUNCHER): ../misc/console_launcher/rusefi_autoupdate.exe | $(CONSOLE_FOLDER)
-	cp $< $@
