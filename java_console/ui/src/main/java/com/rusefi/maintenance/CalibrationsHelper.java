@@ -91,7 +91,8 @@ public class CalibrationsHelper {
         );
         if (!prevCalibrations.isPresent()) {
             callbacks.logLine("Failed to back up current tune from ECU...");
-            return false;
+            callbacks.logLine("Proceeding with firmware update without restoring previous tune.");
+            return updateFirmware.get();
         }
 
         if (!updateFirmware.get()) {
