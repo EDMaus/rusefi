@@ -32,6 +32,18 @@ public class BinaryProtocolExecutor {
         final BinaryProtocolAction<T> bpAction,
         final T failureResult,
         boolean isScanningForEcu, String msg) {
+        return execute(port, callbacks, bpAction, failureResult, isScanningForEcu, msg, true);
+    }
+
+    public static <T> T execute(
+        final String port,
+        final UpdateOperationCallbacks callbacks,
+        final BinaryProtocolAction<T> bpAction,
+        final T failureResult,
+        boolean isScanningForEcu,
+        String msg,
+        boolean needInitialImage
+    ) {
         final AtomicReference<T> executionResult = new AtomicReference<>(failureResult);
         try (LinkManager linkManager = new LinkManager()
             .setNeedPullText(false)
@@ -39,7 +51,7 @@ public class BinaryProtocolExecutor {
         ) {
             callbacks.logLine(String.format(msg + ": Connecting to port `%s`...", port));
             try {
-                if (linkManager.connect(port, isScanningForEcu).await(1, TimeUnit.MINUTES)) {
+                if (connect(linkManager, port, isScanningForEcu, needInitialImage).await(1, TimeUnit.MINUTES)) {
                     final CountDownLatch latch = new CountDownLatch(1);
                     callbacks.logLine(String.format(msg + ": Performing action on port %s...", port));
                     linkManager.execute(() -> {
@@ -66,12 +78,57 @@ public class BinaryProtocolExecutor {
         return executionResult.get();
     }
 
+    private static CountDownLatch connect(
+        final LinkManager linkManager,
+        final String port,
+        final boolean isScanningForEcu,
+        final boolean needInitialImage
+    ) {
+        if (needInitialImage) {
+            return linkManager.connect(port, isScanningForEcu);
+        }
+
+        final CountDownLatch connected = new CountDownLatch(1);
+        final com.rusefi.io.ConnectionStatusLogic.Listener listener = new com.rusefi.io.ConnectionStatusLogic.Listener() {
+            @Override
+            public void onConnectionStatus(boolean isConnected) {}
+
+            @Override
+            public void onConnectionFailed(String s) {
+                log.info("Connection failed while skipping initial image read: " + s);
+            }
+
+            @Override
+            public void onConnectionEstablished() {
+                connected.countDown();
+            }
+        };
+        linkManager.start(port, listener);
+        linkManager.getConnector().connectAndReadConfiguration(
+            new BinaryProtocol.Arguments(false, false),
+            listener
+        );
+        return connected;
+    }
+
     public static <T> T executeWithSuspendedPortScanner(
         final String port,
         final UpdateOperationCallbacks callbacks,
         final BinaryProtocolAction<T> bpAction,
         final T failureResult, ConnectivityContext connectivityContext,
         String msg) {
+        return executeWithSuspendedPortScanner(port, callbacks, bpAction, failureResult, connectivityContext, msg, true);
+    }
+
+    public static <T> T executeWithSuspendedPortScanner(
+        final String port,
+        final UpdateOperationCallbacks callbacks,
+        final BinaryProtocolAction<T> bpAction,
+        final T failureResult,
+        ConnectivityContext connectivityContext,
+        String msg,
+        boolean needInitialImage
+    ) {
         try {
             callbacks.logLine(msg + ": Suspending port scanning...");
             try {
@@ -88,7 +145,7 @@ public class BinaryProtocolExecutor {
             } else {
                 waitForPort(port);
             }
-            return execute(port, callbacks, bpAction, failureResult, false, msg);
+            return execute(port, callbacks, bpAction, failureResult, false, msg, needInitialImage);
         } finally {
             callbacks.logLine(msg + ": Resuming port scanning...");
             connectivityContext.getSerialPortScanner().resume();
