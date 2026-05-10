@@ -106,6 +106,7 @@ ROOT_FOLDER_SOURCES = \
 
 CONSOLE_FOLDER_SOURCES = \
   ../misc/console_launcher/rusefi_autoupdate.exe \
+  ../misc/console_launcher/installation.properties \
   $(SIMULATOR_EXE)
 
 #  $(wildcard ../java_console/*.dll) \
