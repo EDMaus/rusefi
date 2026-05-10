@@ -21,6 +21,7 @@ import java.io.*;
 import java.net.URI;
 import java.net.URL;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Date;
@@ -367,21 +368,27 @@ public class Autoupdate {
      * rusefi_updater.exe/invokes rusefi_console.jar - entry point is Launcher#main
      */
     private static void startConsoleAsANewProcess(final String consoleExeFileName, final String[] args) {
-        if (!Files.exists(Paths.get(consoleExeFileName))) {
+        final Path consoleExePath = Paths.get(consoleExeFileName).toAbsolutePath().normalize();
+        if (!Files.exists(consoleExePath)) {
             log.error(String.format("File `%s` to launch isn't found", consoleExeFileName));
             if (!AutoupdateUtil.runHeadless) {
                 ErrorMessageHelper.showErrorDialog(String.format("File `%s` to launch isn't found.", consoleExeFileName), "Error");
             }
             return;
         }
-        log.info(String.format("File `%s` to launch is found", consoleExeFileName));
+        log.info(String.format("File `%s` to launch is found", consoleExePath));
         final String[] processBuilderArgs = new String[args.length + 1];
-        processBuilderArgs[0] = consoleExeFileName;
+        processBuilderArgs[0] = consoleExePath.toString();
         System.arraycopy(args, 0, processBuilderArgs, 1, args.length);
         try {
-            log.info(String.format("We're starting `%s` process", consoleExeFileName));
-            new ProcessBuilder(processBuilderArgs).start();
-            log.info(String.format("Process `%s` is started", consoleExeFileName));
+            log.info(String.format("We're starting `%s` process", consoleExePath));
+            ProcessBuilder processBuilder = new ProcessBuilder(processBuilderArgs);
+            Path workingDirectory = consoleExePath.getParent();
+            if (workingDirectory != null) {
+                processBuilder.directory(workingDirectory.toFile());
+            }
+            processBuilder.start();
+            log.info(String.format("Process `%s` is started", consoleExePath));
         } catch (final IOException e) {
             final String command = String.join(" ", processBuilderArgs);
             log.error(String.format("Failed to run `$s` command", command), e);
