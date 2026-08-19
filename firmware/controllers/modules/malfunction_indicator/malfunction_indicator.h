@@ -40,4 +40,10 @@ private:
 	int m_pulsesRemaining = 0;
 	bool m_wasBenchActive = false;
 	bool m_ignitionOn = false;
+
+#if EFI_SOFTWARE_KNOCK
+	Timer m_knockFlashTimer;
+	uint32_t m_lastKnockCount = 0;
+	bool m_knockFlashActive = false;
+#endif
 };
