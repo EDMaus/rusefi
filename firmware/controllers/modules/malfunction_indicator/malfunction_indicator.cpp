@@ -32,10 +32,14 @@
 #include "bench_test.h"
 #include "malfunction_central.h"
 #include "malfunction_indicator.h"
+#if EFI_SOFTWARE_KNOCK
+#include "knock_logic.h"
+#endif
 
 static constexpr float ShortPulseMs = 400;
 static constexpr float LongPulseMs = 1500;
 static constexpr float PulseGapMs = 400;
+static constexpr float KnockFlashMs = 200;
 
 void MILController::onIgnitionStateChanged(bool ignitionOn) {
 	m_ignitionOn = ignitionOn;
@@ -115,13 +119,38 @@ void MILController::onSlowCallback() {
 	if (!m_ignitionOn) {
 		m_phase = Phase::Idle;
 		m_activeCode = ObdCode::None;
+#if EFI_SOFTWARE_KNOCK
+		m_knockFlashActive = false;
+		m_lastKnockCount = engine->module<KnockController>()->getKnockCount();
+#endif
 		enginePins.checkEnginePin.setValue("MIL", false);
 		return;
 	}
 
+#if EFI_SOFTWARE_KNOCK
+	const uint32_t knockCount = engine->module<KnockController>()->getKnockCount();
+	if (knockCount != m_lastKnockCount) {
+		m_lastKnockCount = knockCount;
+		m_knockFlashActive = true;
+		m_knockFlashTimer.reset();
+	}
+#endif
+
 	if (!hasErrorCodes()) {
 		m_phase = Phase::Idle;
 		m_activeCode = ObdCode::None;
+
+#if EFI_SOFTWARE_KNOCK
+		if (m_knockFlashActive) {
+			if (!m_knockFlashTimer.hasElapsedMs(KnockFlashMs)) {
+				enginePins.checkEnginePin.setValue("MIL knock", true);
+				return;
+			}
+
+			m_knockFlashActive = false;
+		}
+#endif
+
 		enginePins.checkEnginePin.setValue("MIL", engine->rpmCalculator.isStopped());
 		return;
 	}
