@@ -30,6 +30,7 @@
 #include "pch.h"
 
 #include "bench_test.h"
+#include "ignition_controller.h"
 #include "malfunction_central.h"
 #include "malfunction_indicator.h"
 #if EFI_SOFTWARE_KNOCK
@@ -116,7 +117,9 @@ void MILController::onSlowCallback() {
 		m_activeCode = ObdCode::None;
 	}
 
-	if (!m_ignitionOn) {
+	// Check the live ignition-voltage state every callback instead of relying on
+	// a cached ignition-state notification that may be missed during startup.
+	if (!isIgnVoltage()) {
 		m_phase = Phase::Idle;
 		m_activeCode = ObdCode::None;
 #if EFI_SOFTWARE_KNOCK
