@@ -19,9 +19,8 @@
  * the GNU General Public License as published by the Free Software Foundation; either
  * version 3 of the License, or (at your option) any later version.
  *
- * rusEfi is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
- * even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * rusEfi is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even
+ * the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License along with this program.
  * If not, see <http://www.gnu.org/licenses/>.
@@ -132,6 +131,22 @@ void MILController::onSlowCallback() {
 		return;
 	}
 
+	// Honda-style bulb check: once the key supply is present, keep the MIL solid
+	// while the engine is stopped.  Use the live RPM sensor directly instead of
+	// rpmCalculator.isStopped(), so startup state inside the RPM calculator cannot
+	// suppress the key-on lamp.
+	const float rpm = Sensor::getOrZero(SensorType::Rpm);
+	if (rpm < 50.0f) {
+		m_phase = Phase::Idle;
+		m_activeCode = ObdCode::None;
+#if EFI_SOFTWARE_KNOCK
+		m_knockFlashActive = false;
+		m_lastKnockCount = engine->module<KnockController>()->getKnockCount();
+#endif
+		enginePins.checkEnginePin.setValue("MIL key-on", true);
+		return;
+	}
+
 #if EFI_SOFTWARE_KNOCK
 	const uint32_t knockCount = engine->module<KnockController>()->getKnockCount();
 	if (knockCount != m_lastKnockCount) {
@@ -156,7 +171,7 @@ void MILController::onSlowCallback() {
 		}
 #endif
 
-		enginePins.checkEnginePin.setValue("MIL", engine->rpmCalculator.isStopped());
+		enginePins.checkEnginePin.setValue("MIL", false);
 		return;
 	}
 
