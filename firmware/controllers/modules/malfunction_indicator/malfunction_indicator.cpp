@@ -117,9 +117,11 @@ void MILController::onSlowCallback() {
 		m_activeCode = ObdCode::None;
 	}
 
-	// Check the live ignition-voltage state every callback instead of relying on
-	// a cached ignition-state notification that may be missed during startup.
-	if (!isIgnVoltage()) {
+	// This uaEFI Honda configuration reads switched-key voltage as BatteryVoltage.
+	// Use that existing sensor directly so the same ADC channel does not need a
+	// second IgnKeyVoltage assignment.
+	const bool ignitionOn = Sensor::getOrZero(SensorType::BatteryVoltage) > 6.0f;
+	if (!ignitionOn) {
 		m_phase = Phase::Idle;
 		m_activeCode = ObdCode::None;
 #if EFI_SOFTWARE_KNOCK
